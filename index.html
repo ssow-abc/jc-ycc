@@ -3081,35 +3081,42 @@ function pushToGAS(auto){
 
 /* Restauration depuis GAS */
 function pullFromGAS(){
-  var gasUrl=getGasUrl();
-  if(!gasUrl){alert('URL Google Apps Script non configuree.');return;}
+  var url=getGasUrl();
+  if(!url){alert('URL Google Apps Script non configuree.');return;}
   if(!confirm('Restaurer les donnees depuis Google Sheets ?\nLes donnees locales seront remplacees.'))return;
   syncStatusUI('syncing','Restauration...');
-  /* Passer par le proxy Netlify pour eviter les blocages CORS */
-  var proxyUrl='/.netlify/functions/gas-proxy?url='+encodeURIComponent(gasUrl);
-  fetch(proxyUrl)
-  .then(function(r){return r.json();})
-  .then(function(d){
-    if(d.status!=='ok') throw new Error(d.message||'Erreur serveur');
-    if(d.operations){data=d.operations;sd(data);}
-    if(d.elevesRaw){try{cfg.eleves=JSON.parse(d.elevesRaw);}catch(e){cfg.eleves=[];}}
-    if(d.configRaw){
+  /* Utiliser POST avec action=restore pour eviter les redirections */
+  fetch(url, {
+    method:'POST',
+    mode:'no-cors',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'restore'})
+  }).then(function(){
+    /* no-cors ne retourne pas de données - utiliser GET avec XMLHttpRequest */
+    var xhr=new XMLHttpRequest();
+    xhr.open('GET', url+'?action=all', true);
+    xhr.onload=function(){
       try{
-        var rc=JSON.parse(d.configRaw);
-        var gu=cfg.gasUrl;
-        Object.assign(cfg,rc);
-        cfg.gasUrl=gu||DEFAULT_GAS_URL;
-      }catch(e){}
-    }
-    sc(cfg);
-    buildDashRub();renderStats();renderTable();renderEleveList();
-    syncStatusUI('ok','Restauration reussie');
-    updateSyncInfo();
-    alert('Donnees restaurees avec succes !');
-  })
-  .catch(function(err){
+        var d=JSON.parse(xhr.responseText);
+        if(d.status!=='ok') throw new Error(d.message||'Erreur');
+        if(d.operations){data=d.operations;sd(data);}
+        if(d.elevesRaw){try{cfg.eleves=JSON.parse(d.elevesRaw);}catch(e){cfg.eleves=[];}}
+        if(d.configRaw){try{var rc=JSON.parse(d.configRaw);var gu=cfg.gasUrl;Object.assign(cfg,rc);cfg.gasUrl=gu||DEFAULT_GAS_URL;}catch(e){}}
+        sc(cfg);buildDashRub();renderStats();renderTable();renderEleveList();
+        syncStatusUI('ok','Restauration reussie');updateSyncInfo();
+        alert('Donnees restaurees avec succes !');
+      }catch(err){
+        syncStatusUI('error','Echec: '+err.message);
+        alert('Erreur: '+err.message);
+      }
+    };
+    xhr.onerror=function(){
+      syncStatusUI('error','Echec reseau');
+      alert('Erreur reseau. Verifiez la connexion.');
+    };
+    xhr.send();
+  }).catch(function(err){
     syncStatusUI('error','Echec: '+err.message);
-    alert('Erreur: '+err.message);
   });
 }
 
@@ -3188,11 +3195,12 @@ function pullFromGAS(){
 }
 function autoSync(){if(getGasUrl())pushToGAS(true);}
 function openSyncModal(){
-  /* S'assurer que cfg.gasUrl est initialisé */
-  if(!cfg.gasUrl && DEFAULT_GAS_URL){ cfg.gasUrl=DEFAULT_GAS_URL; sc(cfg); }
+  if(!cfg.gasUrl && typeof DEFAULT_GAS_URL!=='undefined' && DEFAULT_GAS_URL){
+    cfg.gasUrl=DEFAULT_GAS_URL; sc(cfg);
+  }
   updateSyncInfo();
   var gu=document.getElementById('gas-url');
-  if(gu) gu.value=cfg.gasUrl||DEFAULT_GAS_URL||'';
+  if(gu) gu.value=cfg.gasUrl||(typeof DEFAULT_GAS_URL!=='undefined'?DEFAULT_GAS_URL:'')||'';
   document.getElementById('ov-sync').classList.add('open');
 }
 function closeSyncModal(){
