@@ -3282,11 +3282,8 @@ function exportBackup(){
     ecole: cfg.title||'Journal de Caisse',
     operations: data,
     eleves: cfg.eleves||[],
-    config: (function(){
-      var c2=JSON.parse(JSON.stringify(cfg));
-      delete c2.users; /* ne pas exporter les mots de passe */
-      return c2;
-    })()
+    config: JSON.parse(JSON.stringify(cfg)),
+    users: users.filter(function(u){return !u.fixed;}) /* exporter les users non-fixes */
   };
   var blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
   var url=URL.createObjectURL(blob);
@@ -3316,22 +3313,43 @@ function importBackup(){
         if(!backup.version||!backup.operations){
           alert('Fichier de sauvegarde invalide.');return;
         }
-        if(!confirm('Importer la sauvegarde du '+new Date(backup.date).toLocaleDateString('fr-FR')+'\nEcole: '+(backup.ecole||'?')+'\n\nLes donnees actuelles seront remplacees. Continuer ?'))return;
-        /* Restaurer les opérations */
+        var nbOps=backup.operations?backup.operations.length:0;
+        var nbEleves=backup.eleves?backup.eleves.length:0;
+        var nbUsers=backup.users?backup.users.length:0;
+        if(!confirm('Importer la sauvegarde du '+new Date(backup.date).toLocaleDateString('fr-FR')+
+          '\nEcole: '+(backup.ecole||'?')+
+          '\n\n- '+nbOps+' operations'+
+          '\n- '+nbEleves+' eleves'+
+          '\n- '+nbUsers+' utilisateurs'+
+          '\n\nLes donnees actuelles seront remplacees. Continuer ?'))return;
+        /* 1. Restaurer les opérations */
         data=backup.operations||[];
         sd(data);
-        /* Restaurer les élèves */
-        if(backup.eleves) cfg.eleves=backup.eleves;
-        /* Restaurer la config (sans écraser gasUrl et users) */
+        /* 2. Restaurer la config complète */
         if(backup.config){
           var gasBackup=cfg.gasUrl;
+          var usersBackup=JSON.parse(JSON.stringify(users)); /* garder les users locaux */
           Object.assign(cfg,backup.config);
           cfg.gasUrl=gasBackup||DEFAULT_GAS_URL||'';
         }
+        /* 3. Restaurer les élèves */
+        if(backup.eleves) cfg.eleves=backup.eleves;
+        /* 4. Restaurer les utilisateurs du backup */
+        if(backup.users&&backup.users.length>0){
+          var adminLocal=usersBackup.find(function(u){return u.fixed;});
+          var newUsers=backup.users.filter(function(u){return !u.fixed;});
+          var merged=adminLocal?[adminLocal]:[];
+          newUsers.forEach(function(u){
+            if(!merged.find(function(m){return m.login===u.login;}))
+              merged.push(u);
+          });
+          localStorage.setItem(STORE_AUTH,JSON.stringify(merged));
+          users=loadUsers();
+        }
         sc(cfg);
         buildDashRub();renderStats();renderTable();renderEleveList();
-        applyTitle();
-        alert('Sauvegarde importee avec succes !\n'+data.length+' operations, '+(cfg.eleves?cfg.eleves.length:0)+' eleves.');
+        applyTitle();updateSyncInfo();
+        alert('Importation reussie !\n'+nbOps+' operations, '+nbEleves+' eleves, '+nbUsers+' utilisateurs restaures.');
       }catch(err){
         alert('Erreur lors de l\'importation: '+err.message);
       }
