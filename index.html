@@ -1096,13 +1096,14 @@ function doLogin(){
   initSuiviAnnee();
   renderStats();
   renderTable();
-  if(!cfg.gasUrl&&DEFAULT_GAS_URL){cfg.gasUrl=DEFAULT_GAS_URL;sc(cfg);}
+  if(!cfg.gasUrl&&typeof DEFAULT_GAS_URL!=='undefined'&&DEFAULT_GAS_URL){cfg.gasUrl=DEFAULT_GAS_URL;sc(cfg);}
   updateSyncInfo();
   /* Détecter nouveau navigateur sans données */
-  if(!cfg.gasUrl && !data.length && !cfg.eleves.length){
+  if(!data.length && (!cfg.eleves||!cfg.eleves.length)){
     setTimeout(function(){
-      document.getElementById('ov-welcome').classList.add('open');
-    }, 500);
+      var ov=document.getElementById('ov-welcome');
+      if(ov) ov.classList.add('open');
+    }, 600);
   }
 }
 
@@ -3081,43 +3082,8 @@ function pushToGAS(auto){
 
 /* Restauration depuis GAS */
 function pullFromGAS(){
-  var url=getGasUrl();
-  if(!url){alert('URL Google Apps Script non configuree.');return;}
-  if(!confirm('Restaurer les donnees depuis Google Sheets ?\nLes donnees locales seront remplacees.'))return;
-  syncStatusUI('syncing','Restauration...');
-  /* Utiliser POST avec action=restore pour eviter les redirections */
-  fetch(url, {
-    method:'POST',
-    mode:'no-cors',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({action:'restore'})
-  }).then(function(){
-    /* no-cors ne retourne pas de données - utiliser GET avec XMLHttpRequest */
-    var xhr=new XMLHttpRequest();
-    xhr.open('GET', url+'?action=all', true);
-    xhr.onload=function(){
-      try{
-        var d=JSON.parse(xhr.responseText);
-        if(d.status!=='ok') throw new Error(d.message||'Erreur');
-        if(d.operations){data=d.operations;sd(data);}
-        if(d.elevesRaw){try{cfg.eleves=JSON.parse(d.elevesRaw);}catch(e){cfg.eleves=[];}}
-        if(d.configRaw){try{var rc=JSON.parse(d.configRaw);var gu=cfg.gasUrl;Object.assign(cfg,rc);cfg.gasUrl=gu||DEFAULT_GAS_URL;}catch(e){}}
-        sc(cfg);buildDashRub();renderStats();renderTable();renderEleveList();
-        syncStatusUI('ok','Restauration reussie');updateSyncInfo();
-        alert('Donnees restaurees avec succes !');
-      }catch(err){
-        syncStatusUI('error','Echec: '+err.message);
-        alert('Erreur: '+err.message);
-      }
-    };
-    xhr.onerror=function(){
-      syncStatusUI('error','Echec reseau');
-      alert('Erreur reseau. Verifiez la connexion.');
-    };
-    xhr.send();
-  }).catch(function(err){
-    syncStatusUI('error','Echec: '+err.message);
-  });
+  /* Utiliser importBackup() à la place */
+  importBackup();
 }
 
 function updateSyncInfo(){
@@ -3308,6 +3274,73 @@ function welcomeNew(){
   closeWelcome();
 }
 
+/* ===== EXPORT / IMPORT SAUVEGARDE JSON ===== */
+function exportBackup(){
+  var backup={
+    version:'2.0',
+    date: new Date().toISOString(),
+    ecole: cfg.title||'Journal de Caisse',
+    operations: data,
+    eleves: cfg.eleves||[],
+    config: (function(){
+      var c2=JSON.parse(JSON.stringify(cfg));
+      delete c2.users; /* ne pas exporter les mots de passe */
+      return c2;
+    })()
+  };
+  var blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  var date=new Date();
+  var ds=date.getFullYear()+'-'+(date.getMonth()+1<10?'0':'')+(date.getMonth()+1)+'-'+(date.getDate()<10?'0':'')+date.getDate();
+  a.href=url;
+  a.download='backup_jc_'+ds+'.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  alert('Sauvegarde exportee : backup_jc_'+ds+'.json');
+}
+
+function importBackup(){
+  var input=document.createElement('input');
+  input.type='file';
+  input.accept='.json';
+  input.onchange=function(e){
+    var file=e.target.files[0];
+    if(!file)return;
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      try{
+        var backup=JSON.parse(ev.target.result);
+        if(!backup.version||!backup.operations){
+          alert('Fichier de sauvegarde invalide.');return;
+        }
+        if(!confirm('Importer la sauvegarde du '+new Date(backup.date).toLocaleDateString('fr-FR')+'\nEcole: '+(backup.ecole||'?')+'\n\nLes donnees actuelles seront remplacees. Continuer ?'))return;
+        /* Restaurer les opérations */
+        data=backup.operations||[];
+        sd(data);
+        /* Restaurer les élèves */
+        if(backup.eleves) cfg.eleves=backup.eleves;
+        /* Restaurer la config (sans écraser gasUrl et users) */
+        if(backup.config){
+          var gasBackup=cfg.gasUrl;
+          Object.assign(cfg,backup.config);
+          cfg.gasUrl=gasBackup||DEFAULT_GAS_URL||'';
+        }
+        sc(cfg);
+        buildDashRub();renderStats();renderTable();renderEleveList();
+        applyTitle();
+        alert('Sauvegarde importee avec succes !\n'+data.length+' operations, '+(cfg.eleves?cfg.eleves.length:0)+' eleves.');
+      }catch(err){
+        alert('Erreur lors de l\'importation: '+err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
 function forceLogin(){
   currentUser=null;
   sessionPerms={};
@@ -3372,18 +3405,39 @@ setInterval(function(){
 
 <div class="overlay" id="ov-sync" style="z-index:8500">
 <div class="modal wide">
-  <div class="mhead"><h3>&#128279; Synchronisation Google Sheets</h3><button class="mhead-close" onclick="closeSyncModal()">X</button></div>
+  <div class="mhead"><h3>&#128279; Synchronisation &amp; Sauvegarde</h3><button class="mhead-close" onclick="closeSyncModal()">X</button></div>
   <div class="mbody" style="padding:16px">
-    <p style="font-size:12px;color:#555;margin-bottom:14px">Sauvegarde vers Google Sheets. En cas de perte, restaurez vos donnees.</p>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-      <div><div id="sync-status-lbl" style="font-size:13px;font-weight:700;color:#888">Non configure</div><div id="last-sync-lbl" style="font-size:11px;color:#aaa;margin-top:2px">Jamais synchronise</div></div>
-      <button id="sync-now-btn" class="btn" onclick="saveGasUrl();pushToGAS(false)" style="background:#7030A0;color:#fff;padding:8px 14px">&#128190; Synchroniser</button>
+
+    <!-- Section Sauvegarde locale -->
+    <div style="background:#f8f4ff;border:1.5px solid #D9B3FF;border-radius:10px;padding:14px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:#7030A0;margin-bottom:10px">&#128190; Sauvegarde locale (fonctionne partout)</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn" onclick="exportBackup()" style="background:#7030A0;color:#fff;padding:10px 16px;flex:1;min-width:140px">
+          &#8595; Exporter sauvegarde<br><small style="opacity:.8;font-size:10px">Telecharge un fichier .json</small>
+        </button>
+        <button class="btn" onclick="importBackup()" style="background:#fff;color:#7030A0;border:1.5px solid #7030A0;padding:10px 16px;flex:1;min-width:140px">
+          &#8593; Importer sauvegarde<br><small style="font-size:10px;color:#888">Charge un fichier .json</small>
+        </button>
+      </div>
     </div>
-    <div style="margin-bottom:12px"><button class="btn" onclick="saveGasUrl();pullFromGAS()" style="background:#fff;color:#7030A0;border:1.5px solid #7030A0;padding:7px 14px">&#128196; Restaurer</button></div>
-    <hr style="border:none;border-top:1px solid #e8d5ff;margin:12px 0">
-    <div style="font-size:12px;font-weight:700;color:#7030A0;margin-bottom:6px">URL Google Apps Script</div>
-    <input type="url" id="gas-url" placeholder="https://script.google.com/macros/s/XXXX/exec" style="width:100%;padding:9px 12px;border:1.5px solid #D9B3FF;border-radius:8px;font-size:12px;box-sizing:border-box" oninput="saveGasUrl()">
-    <p style="font-size:11px;color:#888;margin-top:5px">Sauvegardee automatiquement.</p>
+
+    <!-- Section Google Sheets -->
+    <div style="background:#fff;border:1.5px solid #e8d5ff;border-radius:10px;padding:14px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:#7030A0;margin-bottom:10px">&#9729; Google Sheets (sauvegarde auto)</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div id="sync-status-lbl" style="font-size:13px;font-weight:700;color:#888">Non configure</div>
+          <div id="last-sync-lbl" style="font-size:11px;color:#aaa;margin-top:2px">Jamais synchronise</div>
+        </div>
+        <button id="sync-now-btn" class="btn" onclick="saveGasUrl();pushToGAS(false)" style="background:#7030A0;color:#fff;padding:8px 14px">&#128190; Synchroniser</button>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:6px">URL Google Apps Script</div>
+      <input type="url" id="gas-url" placeholder="https://script.google.com/macros/s/XXXX/exec"
+             style="width:100%;padding:9px 12px;border:1.5px solid #D9B3FF;border-radius:8px;font-size:12px;box-sizing:border-box"
+             oninput="saveGasUrl()">
+      <p style="font-size:11px;color:#888;margin-top:5px">La sync Google Sheets fonctionne sur Chrome uniquement.</p>
+    </div>
+
   </div>
   <div class="mfoot"><button class="btn btn-outline" onclick="closeSyncModal()">Fermer</button></div>
 </div>
@@ -3392,24 +3446,24 @@ setInterval(function(){
 <!-- MODAL BIENVENUE NOUVEAU NAVIGATEUR -->
 <div class="overlay" id="ov-welcome" style="z-index:9000">
 <div class="modal" style="max-width:420px;text-align:center">
-  <div class="mhead">
-    <h3>&#128075; Bienvenue sur Journal de Caisse</h3>
-  </div>
+  <div class="mhead"><h3>&#128075; Bienvenue sur Journal de Caisse</h3></div>
   <div class="mbody" style="padding:24px">
-    <p style="font-size:14px;color:#555;margin-bottom:20px">
-      Ce navigateur ne contient pas encore de donnees.<br>
-      Que voulez-vous faire ?
-    </p>
+    <p style="font-size:14px;color:#555;margin-bottom:20px">Ce navigateur ne contient pas encore de donnees.<br>Que voulez-vous faire ?</p>
     <div style="display:flex;flex-direction:column;gap:12px">
-      <button class="btn" onclick="welcomeRestore()" 
-        style="background:#7030A0;color:#fff;padding:14px;font-size:14px;border-radius:10px">
-        &#128196; Restaurer mes donnees<br>
-        <small style="opacity:.8;font-size:11px">J'ai deja un compte sur un autre appareil</small>
+      <button class="btn" onclick="closeWelcome();importBackup()"
+        style="background:#7030A0;color:#fff;padding:14px;font-size:13px;border-radius:10px">
+        &#8593; Restaurer depuis un fichier<br>
+        <small style="opacity:.8;font-size:11px">J'ai un fichier backup .json</small>
+      </button>
+      <button class="btn" onclick="welcomeRestore()"
+        style="background:#5a1a80;color:#fff;padding:14px;font-size:13px;border-radius:10px">
+        &#9729; Restaurer depuis Google Sheets<br>
+        <small style="opacity:.8;font-size:11px">Chrome uniquement</small>
       </button>
       <button class="btn btn-outline" onclick="welcomeNew()"
-        style="padding:14px;font-size:14px;border-radius:10px;color:#7030A0;border-color:#7030A0">
+        style="padding:14px;font-size:13px;border-radius:10px;color:#7030A0;border-color:#7030A0">
         &#10133; Commencer un nouveau logiciel<br>
-        <small style="opacity:.8;font-size:11px;color:#888">Premier demarrage sur cet appareil</small>
+        <small style="opacity:.8;font-size:11px;color:#888">Premier demarrage</small>
       </button>
     </div>
   </div>
