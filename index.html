@@ -94,15 +94,15 @@ tr:hover td{background:#F3E8FF}
 .pager button{padding:3px 9px;font-size:11px;border:1.5px solid #D9B3FF;border-radius:6px;background:#fff;color:#7030A0;cursor:pointer}
 .pager button:disabled{opacity:.4;cursor:default}
 .empty{padding:2rem;text-align:center;color:#bbb;font-size:12px}
-.overlay{display:none;position:fixed;inset:0;background:rgba(60,0,100,.35);z-index:999;align-items:flex-start;justify-content:center;padding:20px 10px;overflow-y:auto}
+.overlay{display:none;position:fixed;inset:0;background:rgba(60,0,100,.35);z-index:999;align-items:center;justify-content:center;padding:20px 10px;overflow-y:auto}
 .overlay.open{display:flex}
-.modal{background:#fff;border-radius:14px;border:2px solid #C081FF;width:100%;max-width:540px;margin:auto;display:flex;flex-direction:column;max-height:90vh}
+.modal{background:#fff;border-radius:14px;border:2px solid #C081FF;width:100%;max-width:540px;margin:auto;display:flex;flex-direction:column;max-height:90vh;overflow:hidden}
 .modal.wide{max-width:760px}
 .mhead{background:#7030A0;padding:13px 17px;display:flex;align-items:center;justify-content:space-between;border-radius:12px 12px 0 0}
 .mhead h3{color:#fff;font-size:13px;font-weight:600}
 .mhead-close{background:rgba(255,255,255,.2);border:none;color:#fff;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
 .mhead-close:hover{background:rgba(255,255,255,.35)}
-.mbody{padding:16px;overflow-y:auto;flex:1}
+.mbody{padding:16px;overflow-y:auto;flex:1;min-height:0}
 .mfoot{padding:10px 14px;background:#F3E8FF;border-top:1px solid #D9B3FF;display:flex;gap:6px;justify-content:flex-end;border-radius:0 0 12px 12px;flex-wrap:wrap;flex-shrink:0}
 .frow{margin-bottom:11px}
 .frow label{display:block;font-size:10px;font-weight:700;color:#7030A0;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
