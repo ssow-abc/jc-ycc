@@ -203,7 +203,8 @@ pre{background:#f0e8fa;padding:9px;border-radius:8px;font-size:10px;line-height:
 .login-screen{position:fixed;inset:0;background:#7030A0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
 .login-screen.hidden{display:none}
 .login-card{background:#fff;border-radius:18px;padding:36px 32px 28px;width:100%;max-width:380px;text-align:center}
-.login-logo{width:64px;height:64px;border-radius:14px;background:#7030A0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:24px;font-weight:700;margin:0 auto 14px}
+.login-logo-wrap{display:flex;justify-content:center;margin-bottom:16px}
+.login-logo{width:72px;height:72px;border-radius:14px;background:#7030A0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:#fff;letter-spacing:1px;box-shadow:0 4px 16px rgba(112,48,160,0.25)}
 .login-app-name{font-size:18px;font-weight:700;color:#7030A0;margin-bottom:4px}
 .login-sub{font-size:12px;color:#aaa;margin-bottom:24px}
 .login-frow{margin-bottom:14px;text-align:left}
@@ -312,10 +313,16 @@ pre{background:#f0e8fa;padding:9px;border-radius:8px;font-size:10px;line-height:
 <body>
 <div class="login-screen" id="login-screen" style="display:flex">
   <div class="login-card">
-    <div class="login-logo" id="login-logo">JC</div>
+    <!-- Logo : image si définie, sinon initiales -->
+    <div class="login-logo-wrap">
+      <img id="login-logo-img" src="" alt="" style="display:none;width:72px;height:72px;border-radius:14px;object-fit:cover;box-shadow:0 4px 16px rgba(112,48,160,0.25)">
+      <div id="login-logo" class="login-logo">JC</div>
+    </div>
+    <!-- Nom de l'école depuis cfg.title -->
     <div class="login-app-name" id="login-app-name">Journal de Caisse</div>
-    <div id="login-school-name" style="font-size:15px;font-weight:700;color:#7030A0;margin-bottom:4px;text-align:center"></div>
-    <div class="login-sub">Acces securise - Saisissez vos identifiants</div>
+    <!-- Sous-titre depuis cfg.sub -->
+    <div id="login-school-name" style="font-size:13px;color:#888;margin-bottom:4px;text-align:center"></div>
+    <div class="login-sub">&#128274; Acces securise &mdash; Saisissez vos identifiants</div>
     <div class="login-frow"><label>Identifiant (login)</label><input type="text" id="login-user" placeholder="Votre login" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()"></div>
     <div class="login-frow"><label>Mot de passe</label>
       <div style="position:relative">
@@ -608,7 +615,21 @@ function init(){
         <h4>Titre de l'application</h4>
         <div class="fgrid2">
           <div class="frow"><label>Titre</label><input type="text" id="set-title" placeholder="Journal de Caisse"></div>
-          <div class="frow"><label>Sous-titre</label><input type="text" id="set-sub" placeholder="Paiements et depenses"></div>
+          <div class="frow">
+  <label>Logo ecole</label>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <div id="logo-preview" style="width:48px;height:48px;border-radius:10px;background:#7030A0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0">
+      <span id="logo-preview-txt">JC</span>
+      <img id="logo-preview-img" src="" style="display:none;width:100%;height:100%;object-fit:cover">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <button class="btn btn-sm" onclick="document.getElementById('logo-file-input').click()" style="background:#7030A0;color:#fff;padding:5px 12px;font-size:12px">Choisir une image</button>
+      <button class="btn btn-sm" id="logo-remove-btn" onclick="removeLogo()" style="background:#fff;color:#c00;border:1px solid #c00;padding:5px 12px;font-size:12px;display:none">Supprimer le logo</button>
+    </div>
+    <input type="file" id="logo-file-input" accept="image/*" style="display:none" onchange="onLogoChange(this)">
+  </div>
+</div>
+<div class="frow"><label>Sous-titre</label><input type="text" id="set-sub" placeholder="Paiements et depenses"></div>
         </div>
       </div>
       <div class="settings-section">
@@ -871,42 +892,7 @@ function init(){
     </div>
     <div class="fgrid2">
       <div class="frow"><label>Classe</label>
-        <select id="ee-classe">
-          <option value="">Classe</option>
-          <option>PRESCOLAIRE PS</option><option>PRESCOLAIRE GS</option>
-          <option>CI</option><option>CP</option><option>CE1</option><option>CE2</option>
-          <option>CM1</option><option>CM2</option><option>TL</option><option>TLE</option>
-        </select>
-      </div>
-      <div class="frow"><label>Matricule</label><input type="text" id="ee-mat" placeholder="Matricule"></div>
-    </div>
-    <div class="frow"><label>WhatsApp parent / tuteur</label><input type="tel" id="ee-tel" placeholder="ex: 77 000 00 00"></div>
-    <input type="hidden" id="ee-idx">
-  </div>
-  <div class="mfoot">
-    <button class="btn btn-outline" onclick="closeEditEleve()">Annuler</button>
-    <button class="btn btn-purple" onclick="saveEditEleve()">Enregistrer</button>
-  </div>
-</div>
-</div>
 
-<!-- MODAL CONFIRMATION -->
-<div class="overlay" id="ov-confirm" style="z-index:9000">
-<div class="modal confirm-modal">
-  <div class="mhead" id="confirm-head"><h3>Confirmation</h3><button class="mhead-close" onclick="closeConfirm()">X</button></div>
-  <div class="mbody">
-    <div class="confirm-icon" id="confirm-icon">&#9888;</div>
-    <div class="confirm-msg" id="confirm-msg">Confirmer cette action ?</div>
-    <div class="confirm-sub" id="confirm-sub"></div>
-  </div>
-  <div class="mfoot">
-    <button class="btn btn-outline" onclick="closeConfirm()">Annuler</button>
-    <button class="btn btn-danger" id="confirm-ok-btn" onclick="execConfirm()">Confirmer</button>
-  </div>
-</div>
-</div>
-
-<script>
 
 /* ???????????????????????????????????????????????????????
    SYST?ME DE CONFIRMATION MODAL (remplace confirm())
@@ -2561,7 +2547,6 @@ function saveSettings(){cfg.title=document.getElementById('set-title').value||'J
 function applyTitle(){
   var title = cfg.title || 'Journal de Caisse';
   var sub   = cfg.sub   || 'Paiements et depenses';
-  /* Initiales pour le logo */
   var words = title.split(' ').filter(function(x){return x.length>1;});
   var initials = words.slice(0,2).map(function(x){return x[0].toUpperCase();}).join('') || 'JC';
   /* Topbar */
@@ -2571,15 +2556,24 @@ function applyTitle(){
   if(appTitle) appTitle.textContent = title;
   if(appSub)   appSub.textContent   = sub;
   if(logoLetters) logoLetters.textContent = initials;
-  /* Titre onglet navigateur : "JC | NomEcole" */
+  /* Titre onglet navigateur */
   document.title = 'JC | ' + title;
-  /* Ecran de login */
-  var ll  = document.getElementById('login-logo');
-  var lan = document.getElementById('login-app-name');
-  var lschool = document.getElementById('login-school-name');
-  if(ll)  ll.textContent  = initials;
-  if(lan) lan.textContent = title;
-  if(lschool) lschool.textContent = title;
+  /* Login screen - logo */
+  var loginLogoImg = document.getElementById('login-logo-img');
+  var loginLogo    = document.getElementById('login-logo');
+  var loginName    = document.getElementById('login-app-name');
+  var loginSub     = document.getElementById('login-school-name');
+  if(cfg.logoData){
+    /* Logo image disponible */
+    if(loginLogoImg){ loginLogoImg.src=cfg.logoData; loginLogoImg.style.display='block'; }
+    if(loginLogo)    loginLogo.style.display='none';
+  } else {
+    /* Initiales */
+    if(loginLogoImg) loginLogoImg.style.display='none';
+    if(loginLogo){   loginLogo.style.display='flex'; loginLogo.textContent=initials; }
+  }
+  if(loginName) loginName.textContent = title;
+  if(loginSub)  loginSub.textContent  = sub;
 }
 
 /* ELEVES */
@@ -3440,6 +3434,95 @@ var _autoSaveInterval = null;
 function startAutoSave(){
   if(_autoSaveInterval) clearInterval(_autoSaveInterval);
   _autoSaveInterval = setInterval(function(){
+    if(currentUser && data.length > 0){
+      autoSaveLocal();
+    }
+  }, 60 * 60 * 1000); /* toutes les heures */
+}
+
+/* ===== GESTION LOGO ===== */
+function onLogoChange(input){
+  var file = input.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    cfg.logoData = e.target.result;
+    sc(cfg);
+    updateLogoPreview();
+    applyTitle();
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeLogo(){
+  delete cfg.logoData;
+  sc(cfg);
+  document.getElementById('logo-file-input').value = '';
+  updateLogoPreview();
+  applyTitle();
+}
+
+function updateLogoPreview(){
+  var words = (cfg.title||'JC').split(' ').filter(function(x){return x.length>1;});
+  var initials = words.slice(0,2).map(function(x){return x[0].toUpperCase();}).join('')||'JC';
+  var previewTxt = document.getElementById('logo-preview-txt');
+  var previewImg = document.getElementById('logo-preview-img');
+  var removeBtn  = document.getElementById('logo-remove-btn');
+  if(cfg.logoData){
+    if(previewTxt) previewTxt.style.display='none';
+    if(previewImg){ previewImg.src=cfg.logoData; previewImg.style.display='block'; }
+    if(removeBtn)  removeBtn.style.display='block';
+  } else {
+    if(previewTxt){ previewTxt.textContent=initials; previewTxt.style.display=''; }
+    if(previewImg) previewImg.style.display='none';
+    if(removeBtn)  removeBtn.style.display='none';
+  }
+}
+
+function forceLogin(){
+  currentUser=null;
+  sessionPerms={};
+  applyTitle();
+  var ls=document.getElementById('login-screen');
+  var ap=document.querySelector('.app');
+  if(ls)ls.style.display='flex';
+  if(ap)ap.style.display='none';
+  var lu=document.getElementById('login-user');
+  var lp=document.getElementById('login-pass');
+  var le=document.getElementById('login-error');
+  if(lu)lu.value='';if(lp)lp.value='';if(le)le.textContent='';
+  var lb=document.getElementById('logout-btn');if(lb)lb.remove();
+}
+document.addEventListener('DOMContentLoaded', forceLogin);
+/* Inactivité : timeout 5 minutes */
+var _lastActivity = Date.now();
+var _INACTIVITY_MS = 5 * 60 * 1000; /* 5 minutes */
+
+function updateActivity(){
+  _lastActivity = Date.now();
+}
+
+/* Mettre à jour l'activité à chaque interaction */
+document.addEventListener('click', updateActivity);
+document.addEventListener('keydown', updateActivity);
+document.addEventListener('touchstart', updateActivity);
+
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='visible'){
+    /* Forcer le login seulement si inactif depuis plus de 5 minutes */
+    if(currentUser && (Date.now() - _lastActivity) > _INACTIVITY_MS){
+      forceLogin();
+    }
+  }
+});
+
+/* Vérifier l'inactivité toutes les 30 secondes */
+setInterval(function(){
+  if(currentUser && (Date.now() - _lastActivity) > _INACTIVITY_MS){
+    forceLogin();
+  }
+}, 30000);
+= setInterval(function(){
     if(currentUser && data.length > 0){
       autoSaveLocal();
     }
