@@ -203,8 +203,7 @@ pre{background:#f0e8fa;padding:9px;border-radius:8px;font-size:10px;line-height:
 .login-screen{position:fixed;inset:0;background:#7030A0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
 .login-screen.hidden{display:none}
 .login-card{background:#fff;border-radius:18px;padding:36px 32px 28px;width:100%;max-width:380px;text-align:center}
-.login-logo-wrap{display:flex;justify-content:center;margin-bottom:16px}
-.login-logo{width:72px;height:72px;border-radius:14px;background:#7030A0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:#fff;letter-spacing:1px;box-shadow:0 4px 16px rgba(112,48,160,0.25)}
+.login-logo{width:64px;height:64px;border-radius:14px;background:#7030A0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:24px;font-weight:700;margin:0 auto 14px}
 .login-app-name{font-size:18px;font-weight:700;color:#7030A0;margin-bottom:4px}
 .login-sub{font-size:12px;color:#aaa;margin-bottom:24px}
 .login-frow{margin-bottom:14px;text-align:left}
@@ -313,16 +312,9 @@ pre{background:#f0e8fa;padding:9px;border-radius:8px;font-size:10px;line-height:
 <body>
 <div class="login-screen" id="login-screen" style="display:flex">
   <div class="login-card">
-    <!-- Logo : image si définie, sinon initiales -->
-    <div class="login-logo-wrap">
-      <img id="login-logo-img" src="" alt="" style="display:none;width:72px;height:72px;border-radius:14px;object-fit:cover;box-shadow:0 4px 16px rgba(112,48,160,0.25)">
-      <div id="login-logo" class="login-logo">JC</div>
-    </div>
-    <!-- Nom de l'école depuis cfg.title -->
+    <div class="login-logo" id="login-logo">JC</div>
     <div class="login-app-name" id="login-app-name">Journal de Caisse</div>
-    <!-- Sous-titre depuis cfg.sub -->
-    <div id="login-school-name" style="font-size:13px;color:#888;margin-bottom:4px;text-align:center"></div>
-    <div class="login-sub">&#128274; Acces securise &mdash; Saisissez vos identifiants</div>
+    <div class="login-sub">Acces securise - Saisissez vos identifiants</div>
     <div class="login-frow"><label>Identifiant (login)</label><input type="text" id="login-user" placeholder="Votre login" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()"></div>
     <div class="login-frow"><label>Mot de passe</label>
       <div style="position:relative">
@@ -624,7 +616,7 @@ function init(){
     </div>
     <div style="display:flex;flex-direction:column;gap:4px">
       <button class="btn btn-sm" onclick="document.getElementById('logo-file-input').click()" style="background:#7030A0;color:#fff;padding:5px 12px;font-size:12px">Choisir une image</button>
-      <button class="btn btn-sm" id="logo-remove-btn" onclick="removeLogo()" style="background:#fff;color:#c00;border:1px solid #c00;padding:5px 12px;font-size:12px;display:none">Supprimer le logo</button>
+      <button class="btn btn-sm" id="logo-remove-btn" onclick="removeLogo()" style="background:#fff;color:#c00;border:1px solid #c00;padding:5px 12px;font-size:12px;display:none">Supprimer</button>
     </div>
     <input type="file" id="logo-file-input" accept="image/*" style="display:none" onchange="onLogoChange(this)">
   </div>
@@ -892,7 +884,42 @@ function init(){
     </div>
     <div class="fgrid2">
       <div class="frow"><label>Classe</label>
+        <select id="ee-classe">
+          <option value="">Classe</option>
+          <option>PRESCOLAIRE PS</option><option>PRESCOLAIRE GS</option>
+          <option>CI</option><option>CP</option><option>CE1</option><option>CE2</option>
+          <option>CM1</option><option>CM2</option><option>TL</option><option>TLE</option>
+        </select>
+      </div>
+      <div class="frow"><label>Matricule</label><input type="text" id="ee-mat" placeholder="Matricule"></div>
+    </div>
+    <div class="frow"><label>WhatsApp parent / tuteur</label><input type="tel" id="ee-tel" placeholder="ex: 77 000 00 00"></div>
+    <input type="hidden" id="ee-idx">
+  </div>
+  <div class="mfoot">
+    <button class="btn btn-outline" onclick="closeEditEleve()">Annuler</button>
+    <button class="btn btn-purple" onclick="saveEditEleve()">Enregistrer</button>
+  </div>
+</div>
+</div>
 
+<!-- MODAL CONFIRMATION -->
+<div class="overlay" id="ov-confirm" style="z-index:9000">
+<div class="modal confirm-modal">
+  <div class="mhead" id="confirm-head"><h3>Confirmation</h3><button class="mhead-close" onclick="closeConfirm()">X</button></div>
+  <div class="mbody">
+    <div class="confirm-icon" id="confirm-icon">&#9888;</div>
+    <div class="confirm-msg" id="confirm-msg">Confirmer cette action ?</div>
+    <div class="confirm-sub" id="confirm-sub"></div>
+  </div>
+  <div class="mfoot">
+    <button class="btn btn-outline" onclick="closeConfirm()">Annuler</button>
+    <button class="btn btn-danger" id="confirm-ok-btn" onclick="execConfirm()">Confirmer</button>
+  </div>
+</div>
+</div>
+
+<script>
 
 /* ???????????????????????????????????????????????????????
    SYST?ME DE CONFIRMATION MODAL (remplace confirm())
@@ -1082,18 +1109,13 @@ function doLogin(){
   initSuiviAnnee();
   renderStats();
   renderTable();
-  startAutoSave();
+  updateSyncInfo();
   if(!cfg.gasUrl&&typeof DEFAULT_GAS_URL!=='undefined'&&DEFAULT_GAS_URL){cfg.gasUrl=DEFAULT_GAS_URL;sc(cfg);}
   updateSyncInfo();
   startAutoSave();
-  /* Détecter nouveau navigateur sans données */
-  if(!data.length && (!cfg.eleves||!cfg.eleves.length)){
-    setTimeout(function(){
-      var ov=document.getElementById('ov-welcome');
-      if(ov) ov.classList.add('open');
-    }, 600);
+  if(!data.length&&(!cfg.eleves||!cfg.eleves.length)){
+    setTimeout(function(){var ov=document.getElementById('ov-welcome');if(ov)ov.classList.add('open');},600);
   }
-  startAutoSave();
 }
 
 function toggleLoginPwd(){
@@ -1222,24 +1244,12 @@ const DEFAULT_RUB_S=[
 function ld(){try{return JSON.parse(localStorage.getItem(STORE))||[];}catch(e){return[];}}
 function sd(d){localStorage.setItem(STORE,JSON.stringify(d));}
 var DEFAULT_GAS_URL='https://script.google.com/macros/s/AKfycbzrnkSV5e5zHfwQWkcwiIJv4gM8kvg5S88XHBbF5Fl9k_4vMlFVCTBnyQ4Zm9rOQNDC/exec';
-var DEFAULT_GAS_URL='https://script.google.com/macros/s/AKfycbzrnkSV5e5zHfwQWkcwiIJv4gM8kvg5S88XHBbF5Fl9k_4vMlFVCTBnyQ4Zm9rOQNDC/exec';
 function lc(){
   try{
     const c=JSON.parse(localStorage.getItem(STORE_CFG));
-    if(c){
-      if(!c.rubE)c.rubE=[...DEFAULT_RUB_E];
-      if(!c.rubS)c.rubS=[...DEFAULT_RUB_S];
-      if(c.adresse===undefined)c.adresse='';
-      if(c.telephone===undefined)c.telephone='';
-      if(c.email===undefined)c.email='';
-      if(c.siteWeb===undefined)c.siteWeb='';
-      if(c.autreInfo===undefined)c.autreInfo='';
-      /* Injecter URL GAS par défaut si absente */
-      if(!c.gasUrl)c.gasUrl=DEFAULT_GAS_URL;
-      return c;
-    }
+    if(c){if(!c.rubE)c.rubE=[...DEFAULT_RUB_E];if(!c.rubS)c.rubS=[...DEFAULT_RUB_S];if(c.adresse===undefined)c.adresse='';if(c.telephone===undefined)c.telephone='';if(c.email===undefined)c.email='';if(c.siteWeb===undefined)c.siteWeb='';if(c.autreInfo===undefined)c.autreInfo='';return c;}
   }catch(e){}
-  return{title:'Journal de Caisse',sub:'Paiements et depenses',adresse:'',telephone:'',email:'',siteWeb:'',autreInfo:'',eleves:[],collabs:['M. SOW','Mme BABOU','Abibatou'],rubE:[...DEFAULT_RUB_E],rubS:[...DEFAULT_RUB_S],gasUrl:DEFAULT_GAS_URL};
+  return{title:'Journal de Caisse',sub:'Paiements et depenses',adresse:'',telephone:'',email:'',siteWeb:'',autreInfo:'',eleves:[],collabs:['M. SOW','Mme BABOU','Abibatou'],rubE:[...DEFAULT_RUB_E],rubS:[...DEFAULT_RUB_S],gasUrl:''};
 }
 function sc(c){localStorage.setItem(STORE_CFG,JSON.stringify(c));}
 
@@ -2202,6 +2212,7 @@ function saveOp(){
   var e={numOp:numOp,date:todayStr(),moisOp:moisOp,designation:desig,classe:classe,eleveNom:eleveNom,matricule:matricule,rubrique:rub,par:document.getElementById('f-par').value,tel:document.getElementById('f-tel').value.trim(),commentaire:document.getElementById('f-commentaire').value.trim(),entree:opType==='entree'?montant:0,sortie:opType==='sortie'?montant:0};
   if(editIdx!==null)data[editIdx]=e; else data.unshift(e);
   sd(data);buildDashRub();closeOp();renderStats();renderTable();
+  autoSync();
   /* Sync automatique */
   autoSync();
   /* WhatsApp automatique si numero renseigne */
@@ -2547,6 +2558,7 @@ function saveSettings(){cfg.title=document.getElementById('set-title').value||'J
 function applyTitle(){
   var title = cfg.title || 'Journal de Caisse';
   var sub   = cfg.sub   || 'Paiements et depenses';
+  /* Initiales pour le logo */
   var words = title.split(' ').filter(function(x){return x.length>1;});
   var initials = words.slice(0,2).map(function(x){return x[0].toUpperCase();}).join('') || 'JC';
   /* Topbar */
@@ -2556,24 +2568,25 @@ function applyTitle(){
   if(appTitle) appTitle.textContent = title;
   if(appSub)   appSub.textContent   = sub;
   if(logoLetters) logoLetters.textContent = initials;
-  /* Titre onglet navigateur */
+  /* Titre onglet navigateur : "JC | NomEcole" */
   document.title = 'JC | ' + title;
-  /* Login screen - logo */
-  var loginLogoImg = document.getElementById('login-logo-img');
-  var loginLogo    = document.getElementById('login-logo');
-  var loginName    = document.getElementById('login-app-name');
-  var loginSub     = document.getElementById('login-school-name');
-  if(cfg.logoData){
-    /* Logo image disponible */
-    if(loginLogoImg){ loginLogoImg.src=cfg.logoData; loginLogoImg.style.display='block'; }
-    if(loginLogo)    loginLogo.style.display='none';
-  } else {
-    /* Initiales */
-    if(loginLogoImg) loginLogoImg.style.display='none';
-    if(loginLogo){   loginLogo.style.display='flex'; loginLogo.textContent=initials; }
+  /* Ecran de login */
+  var ll  = document.getElementById('login-logo');
+  var lan = document.getElementById('login-app-name');
+  var lschool = document.getElementById('login-school-name');
+  if(ll)  ll.textContent  = initials;
+  if(lan) lan.textContent = title;
+  if(lschool) lschool.textContent = title;
+
+  var loginLogoImg=document.getElementById('login-logo-img');
+  var loginLogo=document.getElementById('login-logo');
+  if(cfg&&cfg.logoData){
+    if(loginLogoImg){loginLogoImg.src=cfg.logoData;loginLogoImg.style.display='block';}
+    if(loginLogo)loginLogo.style.display='none';
+  }else{
+    if(loginLogoImg)loginLogoImg.style.display='none';
+    if(loginLogo){loginLogo.style.display='flex';loginLogo.textContent=initials;}
   }
-  if(loginName) loginName.textContent = title;
-  if(loginSub)  loginSub.textContent  = sub;
 }
 
 /* ELEVES */
@@ -2823,13 +2836,7 @@ function resetData(){
         }, true);
     }, true);
 }
-function saveGasUrl(){
-  var url=(document.getElementById('gas-url').value||'').trim();
-  cfg.gasUrl=url;
-  sc(cfg);
-  if(url) syncStatusUI('idle','URL configuree - pret a synchroniser');
-  else syncStatusUI('idle','Non configure');
-}
+function saveGasUrl(){cfg.gasUrl=document.getElementById('gas-url').value;sc(cfg);}
 
 /* EXPORT CSV */
 function exportCSV(){
@@ -3026,7 +3033,7 @@ function installPWA(){
 var _syncStatus = 'idle'; /* idle | syncing | ok | error */
 
 function getGasUrl(){
-  return (cfg.gasUrl||'').trim()||(document.getElementById('gas-url')?document.getElementById('gas-url').value.trim():'')||DEFAULT_GAS_URL||'';
+  return (cfg.gasUrl||'').trim();
 }
 
 function syncStatusUI(status, msg){
@@ -3047,7 +3054,6 @@ function syncStatusUI(status, msg){
 
 /* Sync vers GAS - envoi de toutes les données */
 function pushToGAS(auto){
-  var gu=document.getElementById('gas-url');if(gu&&gu.value.trim()){cfg.gasUrl=gu.value.trim();sc(cfg);}
   var url = getGasUrl();
   if(!url){
     if(!auto) alert('Configurez d\'abord l\'URL Google Apps Script dans les Reglages.');
@@ -3079,8 +3085,40 @@ function pushToGAS(auto){
 
 /* Restauration depuis GAS */
 function pullFromGAS(){
-  /* Utiliser importBackup() à la place */
-  importBackup();
+  var url = getGasUrl();
+  if(!url){ alert('Configurez d\'abord l\'URL Google Apps Script.'); return; }
+  if(!confirm('Restaurer les donnees depuis Google Sheets ? Les donnees locales seront remplacees.')) return;
+  syncStatusUI('syncing', 'Restauration...');
+  fetch(url + '?action=all', { method:'GET', mode:'cors' })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if(d.status !== 'ok') throw new Error(d.message || 'Erreur serveur');
+    /* Restaurer opérations */
+    if(d.operations) { data = d.operations; sd(data); }
+    /* Restaurer élèves */
+    if(d.elevesRaw) {
+      try { cfg.eleves = JSON.parse(d.elevesRaw); } catch(e){ cfg.eleves=[]; }
+    }
+    /* Restaurer config (sans écraser gasUrl et users) */
+    if(d.configRaw) {
+      try {
+        var remoteCfg = JSON.parse(d.configRaw);
+        var gasUrlBackup = cfg.gasUrl;
+        var usersBackup = cfg.collabs;
+        Object.assign(cfg, remoteCfg);
+        cfg.gasUrl = gasUrlBackup; /* garder l'URL locale */
+      } catch(e){}
+    }
+    sc(cfg);
+    buildDashRub(); renderStats(); renderTable(); renderEleveList();
+    syncStatusUI('ok', 'Restauration reussie');
+    updateSyncInfo();
+    alert('Donnees restaurees avec succes depuis Google Sheets !');
+  })
+  .catch(function(err){
+    syncStatusUI('error', 'Echec: ' + err.message);
+    alert('Erreur de restauration: ' + err.message + '\nVerifiez que le script est bien deploye en mode public.');
+  });
 }
 
 function updateSyncInfo(){
@@ -3095,14 +3133,7 @@ function autoSync(){
 
 /* ===== SYNC GOOGLE SHEETS ===== */
 var _syncStatus='idle';
-function getGasUrl(){
-  var fromCfg=(cfg.gasUrl||'').trim();
-  if(fromCfg) return fromCfg;
-  var el=document.getElementById('gas-url');
-  var fromEl=el?(el.value||'').trim():'';
-  if(fromEl) return fromEl;
-  return DEFAULT_GAS_URL||'';
-}
+function getGasUrl(){return (cfg.gasUrl||'').trim()||(document.getElementById('gas-url')?document.getElementById('gas-url').value.trim():'')||DEFAULT_GAS_URL||'';}
 function syncStatusUI(status,msg){
   _syncStatus=status;
   var lbl=document.getElementById('sync-status-lbl');
@@ -3117,9 +3148,6 @@ function updateSyncInfo(){
   if(lbl) lbl.textContent=cfg.lastSync?'Derniere sync: '+cfg.lastSync:'Jamais synchronise';
 }
 function pushToGAS(auto){
-  /* Sauvegarder l'URL depuis le champ si non encore sauvegardée */
-  var gu=document.getElementById('gas-url');
-  if(gu&&gu.value.trim()){cfg.gasUrl=gu.value.trim();sc(cfg);}
   var url=getGasUrl();
   if(!url){if(!auto)alert('Configurez l\'URL Google Apps Script dans Reglages > Synchronisation.');return;}
   syncStatusUI('syncing','Synchronisation...');
@@ -3133,9 +3161,6 @@ function pushToGAS(auto){
   }).catch(function(err){syncStatusUI('error','Erreur: '+err.message);});
 }
 function pullFromGAS(){
-  /* Sauvegarder l'URL depuis le champ si non encore sauvegardée */
-  var gu=document.getElementById('gas-url');
-  if(gu&&gu.value.trim()){cfg.gasUrl=gu.value.trim();sc(cfg);}
   var url=getGasUrl();
   if(!url){alert('Configurez l\'URL Google Apps Script.');return;}
   if(!confirm('Restaurer les donnees depuis Google Sheets ? Les donnees locales seront remplacees.'))return;
@@ -3158,12 +3183,9 @@ function pullFromGAS(){
 }
 function autoSync(){if(getGasUrl())pushToGAS(true);}
 function openSyncModal(){
-  if(!cfg.gasUrl && typeof DEFAULT_GAS_URL!=='undefined' && DEFAULT_GAS_URL){
-    cfg.gasUrl=DEFAULT_GAS_URL; sc(cfg);
-  }
   updateSyncInfo();
   var gu=document.getElementById('gas-url');
-  if(gu) gu.value=cfg.gasUrl||(typeof DEFAULT_GAS_URL!=='undefined'?DEFAULT_GAS_URL:'')||'';
+  if(gu) gu.value=cfg.gasUrl||'';
   document.getElementById('ov-sync').classList.add('open');
 }
 function closeSyncModal(){
@@ -3260,224 +3282,126 @@ if('serviceWorker' in navigator){
   });
 }
 
-function closeWelcome(){
-  document.getElementById('ov-welcome').classList.remove('open');
-}
-function welcomeRestore(){
-  closeWelcome();
-  openSyncModal();
-}
-function welcomeNew(){
-  closeWelcome();
-}
+/* ===== CHIFFREMENT ===== */
+var _SC_KEY='AZB$C#2026@YCC!jc_v2_salif_sow_secret_key_xor_encrypt';
+function _xorEncrypt(str,key){var out='';for(var i=0;i<str.length;i++)out+=String.fromCharCode(str.charCodeAt(i)^key.charCodeAt(i%key.length));return btoa(unescape(encodeURIComponent(out)));}
+function _xorDecrypt(b64,key){try{var str=decodeURIComponent(escape(atob(b64)));var out='';for(var i=0;i<str.length;i++)out+=String.fromCharCode(str.charCodeAt(i)^key.charCodeAt(i%key.length));return out;}catch(e){return null;}}
+function _buildBackupData(){return{version:'2.0',date:new Date().toISOString(),ecole:cfg.title||'Journal de Caisse',operations:data,eleves:cfg.eleves||[],config:JSON.parse(JSON.stringify(cfg)),users:users.filter(function(u){return !u.fixed;})};}
 
-/* ===== EXPORT / IMPORT SAUVEGARDE JSON ===== */
-function exportBackup(){ exportBackupEncrypted(); }
-
-function importBackup(){
-  var input=document.createElement('input');
-  input.type='file';
-  input.accept='.dat,.json';
-  input.onchange=function(e){
-    var file=e.target.files[0];
-    if(file) importBackupFile(file);
-  };
-  input.click();
-}
-
-/* ===== CHIFFREMENT SAUVEGARDE ===== */
-var _SC_KEY = 'AZB$C#2026@YCC!jc_v2_salif_sow_secret_key_xor_encrypt';
-
-function _xorEncrypt(str, key){
-  var out = '';
-  for(var i=0; i<str.length; i++){
-    out += String.fromCharCode(str.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-  }
-  return btoa(unescape(encodeURIComponent(out)));
-}
-
-function _xorDecrypt(b64, key){
-  try{
-    var str = decodeURIComponent(escape(atob(b64)));
-    var out = '';
-    for(var i=0; i<str.length; i++){
-      out += String.fromCharCode(str.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-    }
-    return out;
-  }catch(e){ return null; }
-}
-
-function _buildBackupData(){
-  return {
-    version:'2.0',
-    date: new Date().toISOString(),
-    ecole: cfg.title||'Journal de Caisse',
-    operations: data,
-    eleves: cfg.eleves||[],
-    config: JSON.parse(JSON.stringify(cfg)),
-    users: users.filter(function(u){return !u.fixed;})
-  };
-}
-
-/* Sauvegarde chiffrée automatique */
-function autoSaveLocal(){
-  try{
-    var backup = _buildBackupData();
-    var json = JSON.stringify(backup);
-    var encrypted = _xorEncrypt(json, _SC_KEY);
-    var blob = new Blob([encrypted], {type:'application/octet-stream'});
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    var now = new Date();
-    var ts = now.getFullYear()+''
-      +(now.getMonth()+1<10?'0':'')+(now.getMonth()+1)
-      +(now.getDate()<10?'0':'')+now.getDate()
-      +'_'+(now.getHours()<10?'0':'')+now.getHours()
-      +(now.getMinutes()<10?'0':'')+now.getMinutes();
-    a.href = url;
-    a.download = 'sc_'+ts+'.dat';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    console.log('Sauvegarde auto: sc_'+ts+'.dat');
-  }catch(e){
-    console.log('Erreur sauvegarde auto:', e.message);
-  }
-}
-
-/* Export manuel chiffré */
-function exportBackupEncrypted(){
-  var backup = _buildBackupData();
-  var json = JSON.stringify(backup);
-  var encrypted = _xorEncrypt(json, _SC_KEY);
-  var blob = new Blob([encrypted], {type:'application/octet-stream'});
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  var now = new Date();
-  var ts = now.getFullYear()+''
-    +(now.getMonth()+1<10?'0':'')+(now.getMonth()+1)
-    +(now.getDate()<10?'0':'')+now.getDate()
-    +'_'+(now.getHours()<10?'0':'')+now.getHours()
-    +(now.getMinutes()<10?'0':'')+now.getMinutes();
-  a.href = url;
-  a.download = 'sc_'+ts+'.dat';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+function exportBackup(){
+  var backup=_buildBackupData();
+  var encrypted=_xorEncrypt(JSON.stringify(backup),_SC_KEY);
+  var blob=new Blob([encrypted],{type:'application/octet-stream'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  var now=new Date();
+  var ts=now.getFullYear()+''+(now.getMonth()+1<10?'0':'')+(now.getMonth()+1)+(now.getDate()<10?'0':'')+now.getDate()+'_'+(now.getHours()<10?'0':'')+now.getHours()+(now.getMinutes()<10?'0':'')+now.getMinutes();
+  a.href=url; a.download='sc_'+ts+'.dat';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
   URL.revokeObjectURL(url);
   alert('Sauvegarde exportee : sc_'+ts+'.dat');
 }
 
-/* Import depuis fichier .dat chiffré OU .json lisible */
 function importBackupFile(file){
-  var reader = new FileReader();
-  reader.onload = function(ev){
+  var reader=new FileReader();
+  reader.onload=function(ev){
     try{
-      var content = ev.target.result;
+      var content=ev.target.result;
       var backup;
-      /* Essayer de décoder comme fichier chiffré .dat */
-      var decrypted = _xorDecrypt(content.trim(), _SC_KEY);
-      if(decrypted){
-        try{ backup = JSON.parse(decrypted); }catch(e){ backup = null; }
+      var dec=_xorDecrypt(content.trim(),_SC_KEY);
+      if(dec){try{backup=JSON.parse(dec);}catch(e){backup=null;}}
+      if(!backup){try{backup=JSON.parse(content);}catch(e){backup=null;}}
+      if(!backup||!backup.version||!backup.operations){alert('Fichier invalide ou corrompu.');return;}
+      var nbOps=backup.operations?backup.operations.length:0;
+      var nbEleves=backup.eleves?backup.eleves.length:0;
+      var nbUsers=backup.users?backup.users.length:0;
+      if(!confirm('Importer sauvegarde du '+new Date(backup.date).toLocaleDateString('fr-FR')+'\nEcole: '+(backup.ecole||'?')+'\n\n- '+nbOps+' operations\n- '+nbEleves+' eleves\n- '+nbUsers+' utilisateurs\n\nContinuer ?'))return;
+      data=backup.operations||[]; sd(data);
+      if(backup.eleves) cfg.eleves=backup.eleves;
+      if(backup.config){var gu=cfg.gasUrl;var usersBackup=JSON.parse(JSON.stringify(users));Object.assign(cfg,backup.config);cfg.gasUrl=gu||DEFAULT_GAS_URL||'';}
+      if(backup.users&&backup.users.length>0){
+        var adminLocal=usersBackup.find(function(u){return u.fixed;});
+        var merged=adminLocal?[adminLocal]:[];
+        backup.users.filter(function(u){return !u.fixed;}).forEach(function(u){if(!merged.find(function(m){return m.login===u.login;}))merged.push(u);});
+        localStorage.setItem(STORE_AUTH,JSON.stringify(merged));
+        users=loadUsers();
       }
-      /* Sinon essayer JSON direct .json */
-      if(!backup){
-        try{ backup = JSON.parse(content); }catch(e){ backup = null; }
-      }
-      if(!backup || !backup.version || !backup.operations){
-        alert('Fichier de sauvegarde invalide ou corrompu.');return;
-      }
-      var nbOps = backup.operations ? backup.operations.length : 0;
-      var nbEleves = backup.eleves ? backup.eleves.length : 0;
-      var nbUsers = backup.users ? backup.users.length : 0;
-      if(!confirm('Importer la sauvegarde du '
-        +new Date(backup.date).toLocaleDateString('fr-FR')
-        +'\nEcole: '+(backup.ecole||'?')
-        +'\n\n- '+nbOps+' operations'
-        +'\n- '+nbEleves+' eleves'
-        +'\n- '+nbUsers+' utilisateurs'
-        +'\n\nLes donnees actuelles seront remplacees. Continuer ?'))return;
-      /* Restaurer */
-      data = backup.operations||[];
-      sd(data);
-      if(backup.eleves) cfg.eleves = backup.eleves;
-      if(backup.config){
-        var gasBackup = cfg.gasUrl;
-        var usersBackup = JSON.parse(JSON.stringify(users));
-        Object.assign(cfg, backup.config);
-        cfg.gasUrl = gasBackup||DEFAULT_GAS_URL||'';
-      }
-      if(backup.users && backup.users.length > 0){
-        var adminLocal = usersBackup.find(function(u){return u.fixed;});
-        var newUsers = backup.users.filter(function(u){return !u.fixed;});
-        var merged = adminLocal ? [adminLocal] : [];
-        newUsers.forEach(function(u){
-          if(!merged.find(function(m){return m.login===u.login;})) merged.push(u);
-        });
-        localStorage.setItem(STORE_AUTH, JSON.stringify(merged));
-        users = loadUsers();
-      }
-      sc(cfg);
-      buildDashRub();renderStats();renderTable();renderEleveList();
-      applyTitle();updateSyncInfo();
+      sc(cfg);buildDashRub();renderStats();renderTable();renderEleveList();applyTitle();updateSyncInfo();
       alert('Importation reussie !\n'+nbOps+' operations, '+nbEleves+' eleves, '+nbUsers+' utilisateurs.');
-    }catch(err){
-      alert('Erreur importation: '+err.message);
-    }
+    }catch(err){alert('Erreur importation: '+err.message);}
   };
   reader.readAsText(file);
 }
 
-/* ===== SAUVEGARDE AUTOMATIQUE TOUTES LES HEURES ===== */
-var _autoSaveInterval = null;
+function importBackup(){
+  var input=document.createElement('input');
+  input.type='file'; input.accept='.dat,.json';
+  input.onchange=function(e){var file=e.target.files[0];if(file)importBackupFile(file);};
+  input.click();
+}
+
+function autoSaveLocal(){
+  try{
+    var encrypted=_xorEncrypt(JSON.stringify(_buildBackupData()),_SC_KEY);
+    var blob=new Blob([encrypted],{type:'application/octet-stream'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    var now=new Date();
+    var ts=now.getFullYear()+''+(now.getMonth()+1<10?'0':'')+(now.getMonth()+1)+(now.getDate()<10?'0':'')+now.getDate()+'_'+(now.getHours()<10?'0':'')+now.getHours()+(now.getMinutes()<10?'0':'')+now.getMinutes();
+    a.href=url; a.download='sc_'+ts+'.dat';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    console.log('Auto-save: sc_'+ts+'.dat');
+  }catch(e){console.log('Auto-save error:',e.message);}
+}
+
+var _autoSaveInterval=null;
 function startAutoSave(){
   if(_autoSaveInterval) clearInterval(_autoSaveInterval);
-  _autoSaveInterval = setInterval(function(){
-    if(currentUser && data.length > 0){
-      autoSaveLocal();
-    }
-  }, 60 * 60 * 1000); /* toutes les heures */
+  _autoSaveInterval=setInterval(function(){if(currentUser&&data.length>0)autoSaveLocal();},60*60*1000);
 }
 
-/* ===== GESTION LOGO ===== */
+/* ===== LOGO ===== */
 function onLogoChange(input){
-  var file = input.files[0];
-  if(!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e){
-    cfg.logoData = e.target.result;
-    sc(cfg);
-    updateLogoPreview();
-    applyTitle();
-  };
+  var file=input.files[0]; if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){cfg.logoData=e.target.result;sc(cfg);updateLogoPreview();applyTitle();};
   reader.readAsDataURL(file);
 }
-
-function removeLogo(){
-  delete cfg.logoData;
-  sc(cfg);
-  document.getElementById('logo-file-input').value = '';
-  updateLogoPreview();
-  applyTitle();
-}
-
+function removeLogo(){delete cfg.logoData;sc(cfg);document.getElementById('logo-file-input').value='';updateLogoPreview();applyTitle();}
 function updateLogoPreview(){
-  var words = (cfg.title||'JC').split(' ').filter(function(x){return x.length>1;});
-  var initials = words.slice(0,2).map(function(x){return x[0].toUpperCase();}).join('')||'JC';
-  var previewTxt = document.getElementById('logo-preview-txt');
-  var previewImg = document.getElementById('logo-preview-img');
-  var removeBtn  = document.getElementById('logo-remove-btn');
-  if(cfg.logoData){
-    if(previewTxt) previewTxt.style.display='none';
-    if(previewImg){ previewImg.src=cfg.logoData; previewImg.style.display='block'; }
-    if(removeBtn)  removeBtn.style.display='block';
-  } else {
-    if(previewTxt){ previewTxt.textContent=initials; previewTxt.style.display=''; }
-    if(previewImg) previewImg.style.display='none';
-    if(removeBtn)  removeBtn.style.display='none';
-  }
+  var words=(cfg.title||'JC').split(' ').filter(function(x){return x.length>1;});
+  var initials=words.slice(0,2).map(function(x){return x[0].toUpperCase();}).join('')||'JC';
+  var pt=document.getElementById('logo-preview-txt');
+  var pi=document.getElementById('logo-preview-img');
+  var rb=document.getElementById('logo-remove-btn');
+  if(cfg.logoData){if(pt)pt.style.display='none';if(pi){pi.src=cfg.logoData;pi.style.display='block';}if(rb)rb.style.display='block';}
+  else{if(pt){pt.textContent=initials;pt.style.display='';}if(pi)pi.style.display='none';if(rb)rb.style.display='none';}
 }
+
+/* ===== SYNC MODAL ===== */
+function openSyncModal(){
+  if(!cfg.gasUrl&&typeof DEFAULT_GAS_URL!=='undefined'&&DEFAULT_GAS_URL){cfg.gasUrl=DEFAULT_GAS_URL;sc(cfg);}
+  updateSyncInfo();
+  var gu=document.getElementById('gas-url');
+  if(gu)gu.value=cfg.gasUrl||(typeof DEFAULT_GAS_URL!=='undefined'?DEFAULT_GAS_URL:'')||'';
+  document.getElementById('ov-sync').classList.add('open');
+}
+function closeSyncModal(){document.getElementById('ov-sync').classList.remove('open');}
+
+/* ===== BIENVENUE ===== */
+function closeWelcome(){document.getElementById('ov-welcome').classList.remove('open');}
+function welcomeRestore(){closeWelcome();openSyncModal();}
+function welcomeNew(){closeWelcome();}
+
+/* ===== PWA ===== */
+var _deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();_deferredPrompt=e;var btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='inline-flex';});
+window.addEventListener('appinstalled',function(){_deferredPrompt=null;var btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='none';});
+function installPWA(){if(!_deferredPrompt)return;_deferredPrompt.prompt();_deferredPrompt.userChoice.then(function(){_deferredPrompt=null;});}
+
+/* ===== SERVICE WORKER ===== */
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){});});}
 
 function forceLogin(){
   currentUser=null;
@@ -3494,84 +3418,9 @@ function forceLogin(){
   var lb=document.getElementById('logout-btn');if(lb)lb.remove();
 }
 document.addEventListener('DOMContentLoaded', forceLogin);
-/* Inactivité : timeout 5 minutes */
-var _lastActivity = Date.now();
-var _INACTIVITY_MS = 5 * 60 * 1000; /* 5 minutes */
-
-function updateActivity(){
-  _lastActivity = Date.now();
-}
-
-/* Mettre à jour l'activité à chaque interaction */
-document.addEventListener('click', updateActivity);
-document.addEventListener('keydown', updateActivity);
-document.addEventListener('touchstart', updateActivity);
-
 document.addEventListener('visibilitychange', function(){
-  if(document.visibilityState==='visible'){
-    /* Forcer le login seulement si inactif depuis plus de 5 minutes */
-    if(currentUser && (Date.now() - _lastActivity) > _INACTIVITY_MS){
-      forceLogin();
-    }
-  }
+  if(document.visibilityState==='visible') forceLogin();
 });
-
-/* Vérifier l'inactivité toutes les 30 secondes */
-setInterval(function(){
-  if(currentUser && (Date.now() - _lastActivity) > _INACTIVITY_MS){
-    forceLogin();
-  }
-}, 30000);
-= setInterval(function(){
-    if(currentUser && data.length > 0){
-      autoSaveLocal();
-    }
-  }, 60 * 60 * 1000); /* toutes les heures */
-}
-
-function forceLogin(){
-  currentUser=null;
-  sessionPerms={};
-  applyTitle();
-  var ls=document.getElementById('login-screen');
-  var ap=document.querySelector('.app');
-  if(ls)ls.style.display='flex';
-  if(ap)ap.style.display='none';
-  var lu=document.getElementById('login-user');
-  var lp=document.getElementById('login-pass');
-  var le=document.getElementById('login-error');
-  if(lu)lu.value='';if(lp)lp.value='';if(le)le.textContent='';
-  var lb=document.getElementById('logout-btn');if(lb)lb.remove();
-}
-document.addEventListener('DOMContentLoaded', forceLogin);
-/* Inactivité : timeout 5 minutes */
-var _lastActivity = Date.now();
-var _INACTIVITY_MS = 5 * 60 * 1000; /* 5 minutes */
-
-function updateActivity(){
-  _lastActivity = Date.now();
-}
-
-/* Mettre à jour l'activité à chaque interaction */
-document.addEventListener('click', updateActivity);
-document.addEventListener('keydown', updateActivity);
-document.addEventListener('touchstart', updateActivity);
-
-document.addEventListener('visibilitychange', function(){
-  if(document.visibilityState==='visible'){
-    /* Forcer le login seulement si inactif depuis plus de 5 minutes */
-    if(currentUser && (Date.now() - _lastActivity) > _INACTIVITY_MS){
-      forceLogin();
-    }
-  }
-});
-
-/* Vérifier l'inactivité toutes les 30 secondes */
-setInterval(function(){
-  if(currentUser && (Date.now() - _lastActivity) > _INACTIVITY_MS){
-    forceLogin();
-  }
-}, 30000);
 </script>
 
 <!-- MODAL AUTORISATIONS UTILISATEURS -->
@@ -3595,64 +3444,35 @@ setInterval(function(){
 <div class="modal wide">
   <div class="mhead"><h3>&#128279; Synchronisation &amp; Sauvegarde</h3><button class="mhead-close" onclick="closeSyncModal()">X</button></div>
   <div class="mbody" style="padding:16px">
-
-    <!-- Section Sauvegarde locale -->
     <div style="background:#f8f4ff;border:1.5px solid #D9B3FF;border-radius:10px;padding:14px;margin-bottom:14px">
       <div style="font-size:13px;font-weight:700;color:#7030A0;margin-bottom:10px">&#128190; Sauvegarde locale (fonctionne partout)</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn" onclick="exportBackup()" style="background:#7030A0;color:#fff;padding:10px 16px;flex:1;min-width:140px">
-          &#8595; Exporter sauvegarde<br><small style="opacity:.8;font-size:10px">Telecharge un fichier .dat chiffre</small>
-        </button>
-        <button class="btn" onclick="importBackup()" style="background:#fff;color:#7030A0;border:1.5px solid #7030A0;padding:10px 16px;flex:1;min-width:140px">
-          &#8593; Importer sauvegarde<br><small style="font-size:10px;color:#888">Charge un fichier .dat ou .json</small>
-        </button>
+        <button class="btn" onclick="exportBackup()" style="background:#7030A0;color:#fff;padding:10px 16px;flex:1;min-width:140px">&#8595; Exporter<br><small style="opacity:.8;font-size:10px">Fichier .dat chiffre</small></button>
+        <button class="btn" onclick="importBackup()" style="background:#fff;color:#7030A0;border:1.5px solid #7030A0;padding:10px 16px;flex:1;min-width:140px">&#8593; Importer<br><small style="font-size:10px;color:#888">Fichier .dat ou .json</small></button>
       </div>
     </div>
-
-    <!-- Section Google Sheets -->
-    <div style="background:#fff;border:1.5px solid #e8d5ff;border-radius:10px;padding:14px;margin-bottom:14px">
-      <div style="font-size:13px;font-weight:700;color:#7030A0;margin-bottom:10px">&#9729; Google Sheets (sauvegarde auto)</div>
+    <div style="background:#fff;border:1.5px solid #e8d5ff;border-radius:10px;padding:14px">
+      <div style="font-size:13px;font-weight:700;color:#7030A0;margin-bottom:10px">&#9729; Google Sheets (Chrome uniquement)</div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-        <div>
-          <div id="sync-status-lbl" style="font-size:13px;font-weight:700;color:#888">Non configure</div>
-          <div id="last-sync-lbl" style="font-size:11px;color:#aaa;margin-top:2px">Jamais synchronise</div>
-        </div>
+        <div><div id="sync-status-lbl" style="font-size:13px;font-weight:700;color:#888">Non configure</div><div id="last-sync-lbl" style="font-size:11px;color:#aaa;margin-top:2px">Jamais synchronise</div></div>
         <button id="sync-now-btn" class="btn" onclick="saveGasUrl();pushToGAS(false)" style="background:#7030A0;color:#fff;padding:8px 14px">&#128190; Synchroniser</button>
       </div>
-      <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:6px">URL Google Apps Script</div>
-      <input type="url" id="gas-url" placeholder="https://script.google.com/macros/s/XXXX/exec"
-             style="width:100%;padding:9px 12px;border:1.5px solid #D9B3FF;border-radius:8px;font-size:12px;box-sizing:border-box"
-             oninput="saveGasUrl()">
-      <p style="font-size:11px;color:#888;margin-top:5px">La sync Google Sheets fonctionne sur Chrome uniquement.</p>
+      <input type="url" id="gas-url" placeholder="https://script.google.com/macros/s/XXXX/exec" style="width:100%;padding:9px 12px;border:1.5px solid #D9B3FF;border-radius:8px;font-size:12px;box-sizing:border-box" oninput="saveGasUrl()">
     </div>
-
   </div>
   <div class="mfoot"><button class="btn btn-outline" onclick="closeSyncModal()">Fermer</button></div>
 </div>
 </div>
 
-<!-- MODAL BIENVENUE NOUVEAU NAVIGATEUR -->
 <div class="overlay" id="ov-welcome" style="z-index:9000">
 <div class="modal" style="max-width:420px;text-align:center">
   <div class="mhead"><h3>&#128075; Bienvenue sur Journal de Caisse</h3></div>
   <div class="mbody" style="padding:24px">
     <p style="font-size:14px;color:#555;margin-bottom:20px">Ce navigateur ne contient pas encore de donnees.<br>Que voulez-vous faire ?</p>
     <div style="display:flex;flex-direction:column;gap:12px">
-      <button class="btn" onclick="closeWelcome();importBackup()"
-        style="background:#7030A0;color:#fff;padding:14px;font-size:13px;border-radius:10px">
-        &#8593; Restaurer depuis un fichier<br>
-        <small style="opacity:.8;font-size:11px">J'ai un fichier backup .json</small>
-      </button>
-      <button class="btn" onclick="welcomeRestore()"
-        style="background:#5a1a80;color:#fff;padding:14px;font-size:13px;border-radius:10px">
-        &#9729; Restaurer depuis Google Sheets<br>
-        <small style="opacity:.8;font-size:11px">Chrome uniquement</small>
-      </button>
-      <button class="btn btn-outline" onclick="welcomeNew()"
-        style="padding:14px;font-size:13px;border-radius:10px;color:#7030A0;border-color:#7030A0">
-        &#10133; Commencer un nouveau logiciel<br>
-        <small style="opacity:.8;font-size:11px;color:#888">Premier demarrage</small>
-      </button>
+      <button class="btn" onclick="closeWelcome();importBackup()" style="background:#7030A0;color:#fff;padding:14px;font-size:13px;border-radius:10px">&#8593; Restaurer depuis un fichier<br><small style="opacity:.8;font-size:11px">J'ai un fichier backup .dat</small></button>
+      <button class="btn" onclick="welcomeRestore()" style="background:#5a1a80;color:#fff;padding:14px;font-size:13px;border-radius:10px">&#9729; Restaurer depuis Google Sheets<br><small style="opacity:.8;font-size:11px">Chrome uniquement</small></button>
+      <button class="btn btn-outline" onclick="welcomeNew()" style="padding:14px;font-size:13px;border-radius:10px;color:#7030A0;border-color:#7030A0">&#10133; Commencer un nouveau logiciel<br><small style="opacity:.8;font-size:11px;color:#888">Premier demarrage</small></button>
     </div>
   </div>
 </div>
