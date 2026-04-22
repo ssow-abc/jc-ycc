@@ -22,6 +22,10 @@ body{font-family:system-ui,sans-serif;background:#f8f4ff;padding:12px;font-size:
 .hide-mobile{display:inline-flex}
 .show-mobile{display:none}
 @media(max-width:600px){
+  .tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;white-space:nowrap}
+  .set-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;white-space:nowrapoverflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;white-space:nowrap}
+.set-tabs::-webkit-scrollbar{display:none}
+  .set-tab{white-space:nowrap;flex-shrink:0}
   .hide-mobile{display:none!important}
   .show-mobile{display:inline-flex!important}
   .topbar{padding:10px 12px;border-radius:8px}
@@ -142,7 +146,7 @@ tr:hover td{background:#F3E8FF}
 .preview-box{background:#F3E8FF;border-radius:8px;padding:8px 11px;font-size:12px;color:#5a1a80;margin-top:5px;display:none;border-left:3px solid #7030A0;line-height:1.5}
 .settings-section{margin-bottom:20px}
 .settings-section h4{font-size:11px;font-weight:700;color:#7030A0;text-transform:uppercase;letter-spacing:.6px;margin-bottom:9px;padding-bottom:5px;border-bottom:1.5px solid #D9B3FF}
-.set-tabs{display:flex;border-bottom:2px solid #D9B3FF;margin-bottom:14px;gap:0}
+.set-tabs{display:flex;border-bottom:2px solid #D9B3FF;margin-bottom:14px;gap:0overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .set-tab{padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;background:none;border:none;color:#aaa;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
 .set-tab.active{color:#7030A0;border-bottom-color:#7030A0}
 .set-tab:hover:not(.active){color:#7030A0;background:#F3E8FF}
@@ -621,7 +625,6 @@ function init(){
       <button class="set-tab" onclick="switchSetTab('update',this)">Mise a jour</button>
       <button class="set-tab" onclick="switchSetTab('danger',this)">Reset</button>
       <button class="set-tab" onclick="switchSetTab('users',this)">Utilisateurs</button>
-      <button class="set-tab" onclick="switchSetTab('autori',this)">Autorisations</button>
     </div>
     <!-- GENERAL -->
     <div id="set-panel-general" class="set-panel active">
