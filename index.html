@@ -1096,8 +1096,10 @@ function doLogin(){
   initSuiviAnnee();
   renderStats();
   renderTable();
+  startAutoSave();
   if(!cfg.gasUrl&&typeof DEFAULT_GAS_URL!=='undefined'&&DEFAULT_GAS_URL){cfg.gasUrl=DEFAULT_GAS_URL;sc(cfg);}
   updateSyncInfo();
+  startAutoSave();
   /* Détecter nouveau navigateur sans données */
   if(!data.length && (!cfg.eleves||!cfg.eleves.length)){
     setTimeout(function(){
@@ -1105,6 +1107,7 @@ function doLogin(){
       if(ov) ov.classList.add('open');
     }, 600);
   }
+  startAutoSave();
 }
 
 function toggleLoginPwd(){
@@ -3275,88 +3278,172 @@ function welcomeNew(){
 }
 
 /* ===== EXPORT / IMPORT SAUVEGARDE JSON ===== */
-function exportBackup(){
-  var backup={
+function exportBackup(){ exportBackupEncrypted(); }
+
+function importBackup(){
+  var input=document.createElement('input');
+  input.type='file';
+  input.accept='.dat,.json';
+  input.onchange=function(e){
+    var file=e.target.files[0];
+    if(file) importBackupFile(file);
+  };
+  input.click();
+}
+
+/* ===== CHIFFREMENT SAUVEGARDE ===== */
+var _SC_KEY = 'AZB$C#2026@YCC!jc_v2_salif_sow_secret_key_xor_encrypt';
+
+function _xorEncrypt(str, key){
+  var out = '';
+  for(var i=0; i<str.length; i++){
+    out += String.fromCharCode(str.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+  }
+  return btoa(unescape(encodeURIComponent(out)));
+}
+
+function _xorDecrypt(b64, key){
+  try{
+    var str = decodeURIComponent(escape(atob(b64)));
+    var out = '';
+    for(var i=0; i<str.length; i++){
+      out += String.fromCharCode(str.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    }
+    return out;
+  }catch(e){ return null; }
+}
+
+function _buildBackupData(){
+  return {
     version:'2.0',
     date: new Date().toISOString(),
     ecole: cfg.title||'Journal de Caisse',
     operations: data,
     eleves: cfg.eleves||[],
     config: JSON.parse(JSON.stringify(cfg)),
-    users: users.filter(function(u){return !u.fixed;}) /* exporter les users non-fixes */
+    users: users.filter(function(u){return !u.fixed;})
   };
-  var blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement('a');
-  var date=new Date();
-  var ds=date.getFullYear()+'-'+(date.getMonth()+1<10?'0':'')+(date.getMonth()+1)+'-'+(date.getDate()<10?'0':'')+date.getDate();
-  a.href=url;
-  a.download='backup_jc_'+ds+'.json';
+}
+
+/* Sauvegarde chiffrée automatique */
+function autoSaveLocal(){
+  try{
+    var backup = _buildBackupData();
+    var json = JSON.stringify(backup);
+    var encrypted = _xorEncrypt(json, _SC_KEY);
+    var blob = new Blob([encrypted], {type:'application/octet-stream'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var now = new Date();
+    var ts = now.getFullYear()+''
+      +(now.getMonth()+1<10?'0':'')+(now.getMonth()+1)
+      +(now.getDate()<10?'0':'')+now.getDate()
+      +'_'+(now.getHours()<10?'0':'')+now.getHours()
+      +(now.getMinutes()<10?'0':'')+now.getMinutes();
+    a.href = url;
+    a.download = 'sc_'+ts+'.dat';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    console.log('Sauvegarde auto: sc_'+ts+'.dat');
+  }catch(e){
+    console.log('Erreur sauvegarde auto:', e.message);
+  }
+}
+
+/* Export manuel chiffré */
+function exportBackupEncrypted(){
+  var backup = _buildBackupData();
+  var json = JSON.stringify(backup);
+  var encrypted = _xorEncrypt(json, _SC_KEY);
+  var blob = new Blob([encrypted], {type:'application/octet-stream'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  var now = new Date();
+  var ts = now.getFullYear()+''
+    +(now.getMonth()+1<10?'0':'')+(now.getMonth()+1)
+    +(now.getDate()<10?'0':'')+now.getDate()
+    +'_'+(now.getHours()<10?'0':'')+now.getHours()
+    +(now.getMinutes()<10?'0':'')+now.getMinutes();
+  a.href = url;
+  a.download = 'sc_'+ts+'.dat';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  alert('Sauvegarde exportee : backup_jc_'+ds+'.json');
+  alert('Sauvegarde exportee : sc_'+ts+'.dat');
 }
 
-function importBackup(){
-  var input=document.createElement('input');
-  input.type='file';
-  input.accept='.json';
-  input.onchange=function(e){
-    var file=e.target.files[0];
-    if(!file)return;
-    var reader=new FileReader();
-    reader.onload=function(ev){
-      try{
-        var backup=JSON.parse(ev.target.result);
-        if(!backup.version||!backup.operations){
-          alert('Fichier de sauvegarde invalide.');return;
-        }
-        var nbOps=backup.operations?backup.operations.length:0;
-        var nbEleves=backup.eleves?backup.eleves.length:0;
-        var nbUsers=backup.users?backup.users.length:0;
-        if(!confirm('Importer la sauvegarde du '+new Date(backup.date).toLocaleDateString('fr-FR')+
-          '\nEcole: '+(backup.ecole||'?')+
-          '\n\n- '+nbOps+' operations'+
-          '\n- '+nbEleves+' eleves'+
-          '\n- '+nbUsers+' utilisateurs'+
-          '\n\nLes donnees actuelles seront remplacees. Continuer ?'))return;
-        /* 1. Restaurer les opérations */
-        data=backup.operations||[];
-        sd(data);
-        /* 2. Restaurer la config complète */
-        if(backup.config){
-          var gasBackup=cfg.gasUrl;
-          var usersBackup=JSON.parse(JSON.stringify(users)); /* garder les users locaux */
-          Object.assign(cfg,backup.config);
-          cfg.gasUrl=gasBackup||DEFAULT_GAS_URL||'';
-        }
-        /* 3. Restaurer les élèves */
-        if(backup.eleves) cfg.eleves=backup.eleves;
-        /* 4. Restaurer les utilisateurs du backup */
-        if(backup.users&&backup.users.length>0){
-          var adminLocal=usersBackup.find(function(u){return u.fixed;});
-          var newUsers=backup.users.filter(function(u){return !u.fixed;});
-          var merged=adminLocal?[adminLocal]:[];
-          newUsers.forEach(function(u){
-            if(!merged.find(function(m){return m.login===u.login;}))
-              merged.push(u);
-          });
-          localStorage.setItem(STORE_AUTH,JSON.stringify(merged));
-          users=loadUsers();
-        }
-        sc(cfg);
-        buildDashRub();renderStats();renderTable();renderEleveList();
-        applyTitle();updateSyncInfo();
-        alert('Importation reussie !\n'+nbOps+' operations, '+nbEleves+' eleves, '+nbUsers+' utilisateurs restaures.');
-      }catch(err){
-        alert('Erreur lors de l\'importation: '+err.message);
+/* Import depuis fichier .dat chiffré OU .json lisible */
+function importBackupFile(file){
+  var reader = new FileReader();
+  reader.onload = function(ev){
+    try{
+      var content = ev.target.result;
+      var backup;
+      /* Essayer de décoder comme fichier chiffré .dat */
+      var decrypted = _xorDecrypt(content.trim(), _SC_KEY);
+      if(decrypted){
+        try{ backup = JSON.parse(decrypted); }catch(e){ backup = null; }
       }
-    };
-    reader.readAsText(file);
+      /* Sinon essayer JSON direct .json */
+      if(!backup){
+        try{ backup = JSON.parse(content); }catch(e){ backup = null; }
+      }
+      if(!backup || !backup.version || !backup.operations){
+        alert('Fichier de sauvegarde invalide ou corrompu.');return;
+      }
+      var nbOps = backup.operations ? backup.operations.length : 0;
+      var nbEleves = backup.eleves ? backup.eleves.length : 0;
+      var nbUsers = backup.users ? backup.users.length : 0;
+      if(!confirm('Importer la sauvegarde du '
+        +new Date(backup.date).toLocaleDateString('fr-FR')
+        +'\nEcole: '+(backup.ecole||'?')
+        +'\n\n- '+nbOps+' operations'
+        +'\n- '+nbEleves+' eleves'
+        +'\n- '+nbUsers+' utilisateurs'
+        +'\n\nLes donnees actuelles seront remplacees. Continuer ?'))return;
+      /* Restaurer */
+      data = backup.operations||[];
+      sd(data);
+      if(backup.eleves) cfg.eleves = backup.eleves;
+      if(backup.config){
+        var gasBackup = cfg.gasUrl;
+        var usersBackup = JSON.parse(JSON.stringify(users));
+        Object.assign(cfg, backup.config);
+        cfg.gasUrl = gasBackup||DEFAULT_GAS_URL||'';
+      }
+      if(backup.users && backup.users.length > 0){
+        var adminLocal = usersBackup.find(function(u){return u.fixed;});
+        var newUsers = backup.users.filter(function(u){return !u.fixed;});
+        var merged = adminLocal ? [adminLocal] : [];
+        newUsers.forEach(function(u){
+          if(!merged.find(function(m){return m.login===u.login;})) merged.push(u);
+        });
+        localStorage.setItem(STORE_AUTH, JSON.stringify(merged));
+        users = loadUsers();
+      }
+      sc(cfg);
+      buildDashRub();renderStats();renderTable();renderEleveList();
+      applyTitle();updateSyncInfo();
+      alert('Importation reussie !\n'+nbOps+' operations, '+nbEleves+' eleves, '+nbUsers+' utilisateurs.');
+    }catch(err){
+      alert('Erreur importation: '+err.message);
+    }
   };
-  input.click();
+  reader.readAsText(file);
+}
+
+/* ===== SAUVEGARDE AUTOMATIQUE TOUTES LES HEURES ===== */
+var _autoSaveInterval = null;
+function startAutoSave(){
+  if(_autoSaveInterval) clearInterval(_autoSaveInterval);
+  _autoSaveInterval = setInterval(function(){
+    if(currentUser && data.length > 0){
+      autoSaveLocal();
+    }
+  }, 60 * 60 * 1000); /* toutes les heures */
 }
 
 function forceLogin(){
@@ -3431,10 +3518,10 @@ setInterval(function(){
       <div style="font-size:13px;font-weight:700;color:#7030A0;margin-bottom:10px">&#128190; Sauvegarde locale (fonctionne partout)</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="btn" onclick="exportBackup()" style="background:#7030A0;color:#fff;padding:10px 16px;flex:1;min-width:140px">
-          &#8595; Exporter sauvegarde<br><small style="opacity:.8;font-size:10px">Telecharge un fichier .json</small>
+          &#8595; Exporter sauvegarde<br><small style="opacity:.8;font-size:10px">Telecharge un fichier .dat chiffre</small>
         </button>
         <button class="btn" onclick="importBackup()" style="background:#fff;color:#7030A0;border:1.5px solid #7030A0;padding:10px 16px;flex:1;min-width:140px">
-          &#8593; Importer sauvegarde<br><small style="font-size:10px;color:#888">Charge un fichier .json</small>
+          &#8593; Importer sauvegarde<br><small style="font-size:10px;color:#888">Charge un fichier .dat ou .json</small>
         </button>
       </div>
     </div>
