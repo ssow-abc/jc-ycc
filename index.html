@@ -648,7 +648,10 @@ function init(){
 </div>
 <div class="frow"><label>Sous-titre</label><input type="text" id="set-sub" placeholder="Paiements et depenses"></div>
         </div>
-      </div>
+      
+      <hr style="border:none;border-top:1px solid #e8d5ff;margin:14px 0">
+      <button class="btn" onclick="closeSet();openHistory()" style="background:#7030A0;color:#fff;padding:8px 16px">&#128203; Historique des modifications</button>
+    </div>
       <div class="settings-section">
         <h4>Informations etablissement (en-tete recu PDF)</h4>
         <div class="fgrid2">
@@ -1127,9 +1130,11 @@ function doLogin(){
   var pwd=document.getElementById('login-pass').value;
   var err=document.getElementById('login-error');
   if(!login||!pwd){err.textContent='Saisissez votre login et mot de passe.';return;}
-  var found=users.find(function(u){return u.login===login&&u.pwd===pwd;});
+  var found=users.find(function(u){return u.login===login&&(u.pwdHash?checkPwdHash(pwd,u.pwdHash):(u.pwd===pwd));});
   if(!found){err.textContent='Identifiants incorrects. Reessayez.';document.getElementById('login-pass').value='';document.getElementById('login-pass').focus();return;}
   currentUser=found;
+  migratePwds();
+  addHistory('login','Connexion: '+found.login);
   document.getElementById('login-screen').style.display='none';
   document.querySelector('.app').style.display='block';
   err.textContent='';
@@ -2252,6 +2257,7 @@ function saveOp(){
   var numOp=editIdx!==null?(data[editIdx].numOp||nextNumOp()):nextNumOp();
   var e={numOp:numOp,date:todayStr(),moisOp:moisOp,designation:desig,classe:classe,eleveNom:eleveNom,matricule:matricule,rubrique:rub,par:document.getElementById('f-par').value,tel:document.getElementById('f-tel').value.trim(),commentaire:document.getElementById('f-commentaire').value.trim(),entree:opType==='entree'?montant:0,sortie:opType==='sortie'?montant:0};
   if(editIdx!==null)data[editIdx]=e; else data.unshift(e);
+  addHistory(editIdx!==null?'edit_op':'add_op',(editIdx!==null?'Modif: ':'Ajout: ')+e.designation);
   sd(data);buildDashRub();closeOp();renderStats();renderTable();
   autoSync();
   /* Sync automatique */
@@ -2262,7 +2268,7 @@ function saveOp(){
 function delOp(idx){
   var r=data[idx];
   askConfirm('Supprimer cette operation ?', (r.numOp||'')+' | '+(r.designation||'').substring(0,40), function(){
-    moveToTrash(idx);data.splice(idx,1);sd(data);renderStats();renderTable();
+    addHistory('del_op','Suppression operation');moveToTrash(idx);data.splice(idx,1);sd(data);renderStats();renderTable();
   }, true);
 }
 
@@ -3528,6 +3534,55 @@ function emptyTrash(){
   renderTrashList();
 }
 
+/* ===== CHIFFREMENT MOT DE PASSE ===== */
+var _PWD_KEY='jc_ycc_pwd_salt_2026';
+function hashPwd(pwd){
+  var out='';
+  for(var i=0;i<pwd.length;i++)
+    out+=String.fromCharCode(pwd.charCodeAt(i)^_PWD_KEY.charCodeAt(i%_PWD_KEY.length));
+  return btoa(unescape(encodeURIComponent(out)));
+}
+function checkPwdHash(pwd,hash){ return hashPwd(pwd)===hash; }
+function migratePwds(){
+  var changed=false;
+  users.forEach(function(u){
+    if(u.pwd&&!u.pwdHash){u.pwdHash=hashPwd(u.pwd);delete u.pwd;changed=true;}
+  });
+  if(changed) saveUsers(users);
+}
+
+/* ===== HISTORIQUE ===== */
+var _STORE_HIST='jc_v8d_history';
+var history_log=JSON.parse(localStorage.getItem(_STORE_HIST)||'[]');
+function addHistory(action,details){
+  var entry={date:new Date().toISOString(),user:currentUser?currentUser.login:'system',action:action,details:details||''};
+  history_log.unshift(entry);
+  if(history_log.length>200)history_log=history_log.slice(0,200);
+  localStorage.setItem(_STORE_HIST,JSON.stringify(history_log));
+}
+function openHistory(){renderHistoryList();document.getElementById('ov-history').classList.add('open');}
+function closeHistory(){document.getElementById('ov-history').classList.remove('open');}
+function renderHistoryList(){
+  var el=document.getElementById('history-list');
+  if(!el)return;
+  if(!history_log.length){el.innerHTML='<div style="padding:20px;text-align:center;color:#aaa">Aucune modification enregistree</div>';return;}
+  var icons={'add_op':'&#10133;','edit_op':'&#9998;','del_op':'&#128465;','restore_op':'&#8617;','login':'&#128274;','settings':'&#9881;','import':'&#8593;','export':'&#8595;','reset':'&#9888;'};
+  el.innerHTML=history_log.map(function(e){
+    var d=new Date(e.date);
+    var ds=d.toLocaleDateString('fr-FR')+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    return '<div style="display:flex;gap:10px;padding:9px 12px;border-bottom:1px solid #f0e8ff;align-items:flex-start">'
+      +'<span style="font-size:14px;flex-shrink:0">'+(icons[e.action]||'&#9679;')+'</span>'
+      +'<div style="flex:1"><div style="font-size:12px;font-weight:600;color:#333">'+e.details+'</div>'
+      +'<div style="font-size:10px;color:#aaa">'+ds+' &mdash; '+e.user+'</div></div></div>';
+  }).join('');
+}
+function clearHistory(){
+  if(!confirm('Effacer tout l\'historique ?'))return;
+  history_log=[];
+  localStorage.setItem(_STORE_HIST,'[]');
+  renderHistoryList();
+}
+
 function forceLogin(){
   currentUser=null;
   sessionPerms={};
@@ -3644,6 +3699,14 @@ setInterval(function(){
     <button class="btn btn-outline" onclick="closeTrash()">Fermer</button>
     <button class="btn" onclick="emptyTrash()" style="background:#c00;color:#fff">Vider la corbeille</button>
   </div>
+</div>
+</div>
+
+<div class="overlay" id="ov-history" style="z-index:8500">
+<div class="modal wide">
+  <div class="mhead"><h3>&#128203; Historique des modifications</h3><button class="mhead-close" onclick="closeHistory()">X</button></div>
+  <div class="mbody" style="padding:0;max-height:65vh;overflow-y:auto"><div id="history-list"></div></div>
+  <div class="mfoot"><button class="btn btn-outline" onclick="closeHistory()">Fermer</button><button class="btn" onclick="clearHistory()" style="background:#c00;color:#fff">Effacer</button></div>
 </div>
 </div>
 </body>
