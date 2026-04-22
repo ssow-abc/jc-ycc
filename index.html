@@ -351,8 +351,8 @@ pre{background:#f0e8fa;padding:9px;border-radius:8px;font-size:10px;line-height:
     <div><div class="topbar-title" id="app-title-display">Journal de Caisse</div><div class="topbar-sub" id="app-sub-display">Paiements &amp; depenses</div></div>
   </div>
   <div class="topbar-right">
-  <span style="font-size:9px;color:rgba(255,255,255,0.5);margin-right:4px;font-weight:600">v2.0</span>
-  <button id="sync-topbar-btn" class="btn btn-ghost" onclick="openSyncModal()" style="display:none;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.4)">&#128279; Sync</button>
+  <span style="font-size:9px;color:rgba(255,255,255,0.5);margin-right:4px;font-weight:600">v2.1</span>
+  <button id="sync-topbar-btn" class="btn btn-ghost" onclick="openSyncModal()" style="display:inline-flex;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.4)">&#128190; Sauv.</button>
   <button id="pwa-install-btn" class="btn btn-ghost" onclick="installPWA()" style="display:none;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.4)">&#10515; Installer</button>
   <button class="btn btn-ghost hide-mobile" onclick="askPassword()">&#9881; Reglages</button>
     <button class="btn btn-ghost hide-mobile" onclick="exportCSV()">&#8595; CSV</button>
@@ -420,6 +420,9 @@ pre{background:#f0e8fa;padding:9px;border-radius:8px;font-size:10px;line-height:
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-top:1rem">
     <div><div class="sec-title">Top rubriques - Entrees</div><div id="re"></div></div>
     <div><div class="sec-title">Top rubriques - Sorties</div><div id="rs"></div></div>
+    <div style="margin-top:1.5rem">
+    <div class="sec-title" style="margin-bottom:10px">&#128200; Tendances mensuelles</div>
+    <div id="tendances-table" style="overflow-x:auto;border-radius:10px;border:1.5px solid #e8d5ff"></div>
   </div>
 </div>
 <div id="tab-suivi" style="display:none">
@@ -630,7 +633,7 @@ function init(){
       <button class="set-tab" onclick="switchSetTab('users',this)">Utilisateurs</button>
     </div>
   </div>
-  <div class="mbody" style="flex:1;overflow-y:auto;min-height:0"> style="flex:1;min-height:0;overflow-y:auto;padding:16px">
+  <div class="mbody">
 
     <!-- GENERAL -->
     <div id="set-panel-general" class="set-panel active">
@@ -2076,7 +2079,8 @@ function renderTable(){
   document.getElementById('pager').innerHTML='<span style="color:#777;font-size:11px">'+total+' op. ('+per+') / '+totalAll+' total</span><div style="display:flex;gap:3px;align-items:center"><button onclick="page--;renderTable()" '+(page<=1?'disabled':'')+'>&#8249;</button><span style="color:#7030A0;font-weight:600;padding:0 5px">'+page+'/'+tp+'</span><button onclick="page++;renderTable()" '+(page>=tp?'disabled':'')+'>&#8250;</button></div>';
 }
 /* TABS */
-function switchTab(tab,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');['journal','stats','suivi','sync'].forEach(t=>{const e=document.getElementById('tab-'+t);if(e)e.style.display=t===tab?'':'none';});if(tab==='stats')setTimeout(renderChart,50);if(tab==='suivi'){initSuiviAnnee();initImpayesFiltres();}}
+function switchTab(tab,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');['journal','stats','suivi','sync'].forEach(t=>{const e=document.getElementById('tab-'+t);if(e)e.style.display=t===tab?'':'none';});if(tab==='stats')setTimeout(renderChart,50);if(tab==='suivi'){initSuiviAnnee();initImpayesFiltres();}  if(tab==='stats') renderTendances();
+}
 function switchSetTab(tab,el){
   document.querySelectorAll('.set-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
@@ -2877,7 +2881,9 @@ function resetData(){
         }, true);
     }, true);
 }
-function saveGasUrl(){cfg.gasUrl=document.getElementById('gas-url').value;sc(cfg);}
+
+function saveGasUrl(){/* sync GAS supprimée */}
+
 
 /* EXPORT CSV */
 function exportCSV(){
@@ -3073,104 +3079,32 @@ function installPWA(){
 /* ===== SYNCHRONISATION GOOGLE SHEETS ===== */
 var _syncStatus = 'idle'; /* idle | syncing | ok | error */
 
-function getGasUrl(){
-  return (cfg.gasUrl||'').trim();
-}
 
-function syncStatusUI(status, msg){
-  _syncStatus = status;
-  var btn = document.getElementById('sync-now-btn');
-  var lbl = document.getElementById('sync-status-lbl');
-  var colors = {idle:'#888', syncing:'#7030A0', ok:'#2e7d32', error:'#c00'};
-  var icons  = {idle:'&#9679;', syncing:'&#8987;', ok:'&#10003;', error:'&#10007;'};
-  if(lbl){
-    lbl.innerHTML = (icons[status]||'') + ' ' + (msg||'');
-    lbl.style.color = colors[status]||'#888';
-  }
-  if(btn){
-    btn.disabled = (status === 'syncing');
-    btn.textContent = status==='syncing' ? 'Sync...' : 'Synchroniser maintenant';
-  }
-}
+function getGasUrl(){return '';}
+
+
+
+function syncStatusUI(){/* sync GAS supprimée */}
+
 
 /* Sync vers GAS - envoi de toutes les données */
-function pushToGAS(auto){
-  var url = getGasUrl();
-  if(!url){
-    if(!auto) alert('Configurez d\'abord l\'URL Google Apps Script dans les Reglages.');
-    return;
-  }
-  syncStatusUI('syncing', 'Synchronisation...');
-  var payload = {
-    action: 'sync',
-    operations: data,
-    eleves: cfg.eleves || [],
-    config: cfg
-  };
-  fetch(url, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify(payload)
-  }).then(function(){
-    var now = new Date();
-    var ts = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-    cfg.lastSync = ts;
-    sc(cfg);
-    syncStatusUI('ok', 'Sync OK - ' + ts);
-    updateSyncInfo();
-  }).catch(function(err){
-    syncStatusUI('error', 'Erreur: ' + err.message);
-  });
-}
+
+function pushToGAS(){/* sync GAS supprimée */}
+
 
 /* Restauration depuis GAS */
-function pullFromGAS(){
-  var url = getGasUrl();
-  if(!url){ alert('Configurez d\'abord l\'URL Google Apps Script.'); return; }
-  if(!confirm('Restaurer les donnees depuis Google Sheets ? Les donnees locales seront remplacees.')) return;
-  syncStatusUI('syncing', 'Restauration...');
-  fetch(url + '?action=all', { method:'GET', mode:'cors' })
-  .then(function(r){ return r.json(); })
-  .then(function(d){
-    if(d.status !== 'ok') throw new Error(d.message || 'Erreur serveur');
-    /* Restaurer opérations */
-    if(d.operations) { data = d.operations; sd(data); }
-    /* Restaurer élèves */
-    if(d.elevesRaw) {
-      try { cfg.eleves = JSON.parse(d.elevesRaw); } catch(e){ cfg.eleves=[]; }
-    }
-    /* Restaurer config (sans écraser gasUrl et users) */
-    if(d.configRaw) {
-      try {
-        var remoteCfg = JSON.parse(d.configRaw);
-        var gasUrlBackup = cfg.gasUrl;
-        var usersBackup = cfg.collabs;
-        Object.assign(cfg, remoteCfg);
-        cfg.gasUrl = gasUrlBackup; /* garder l'URL locale */
-      } catch(e){}
-    }
-    sc(cfg);
-    buildDashRub(); renderStats(); renderTable(); renderEleveList();
-    syncStatusUI('ok', 'Restauration reussie');
-    updateSyncInfo();
-    alert('Donnees restaurees avec succes depuis Google Sheets !');
-  })
-  .catch(function(err){
-    syncStatusUI('error', 'Echec: ' + err.message);
-    alert('Erreur de restauration: ' + err.message + '\nVerifiez que le script est bien deploye en mode public.');
-  });
-}
 
-function updateSyncInfo(){
-  var lbl = document.getElementById('last-sync-lbl');
-  if(lbl) lbl.textContent = cfg.lastSync ? 'Derniere sync: ' + cfg.lastSync : 'Jamais synchronise';
-}
+function pullFromGAS(){/* sync GAS supprimée */}
+
+
+
+function updateSyncInfo(){/* sync GAS supprimée */}
+
 
 /* Auto-sync après chaque opération enregistrée */
-function autoSync(){
-  if(getGasUrl()) pushToGAS(true);
-}
+
+function autoSync(){/* sync GAS supprimée */}
+
 
 /* ===== SYNC GOOGLE SHEETS ===== */
 var _syncStatus='idle';
@@ -3327,7 +3261,7 @@ if('serviceWorker' in navigator){
 var _SC_KEY='AZB$C#2026@YCC!jc_v2_salif_sow_secret_key_xor_encrypt';
 function _xorEncrypt(str,key){var out='';for(var i=0;i<str.length;i++)out+=String.fromCharCode(str.charCodeAt(i)^key.charCodeAt(i%key.length));return btoa(unescape(encodeURIComponent(out)));}
 function _xorDecrypt(b64,key){try{var str=decodeURIComponent(escape(atob(b64)));var out='';for(var i=0;i<str.length;i++)out+=String.fromCharCode(str.charCodeAt(i)^key.charCodeAt(i%key.length));return out;}catch(e){return null;}}
-function _buildBackupData(){return{version:'2.0',date:new Date().toISOString(),ecole:cfg.title||'Journal de Caisse',operations:data,eleves:cfg.eleves||[],config:JSON.parse(JSON.stringify(cfg)),users:users.filter(function(u){return !u.fixed;})};}
+function _buildBackupData(){return{version:'2.1',date:new Date().toISOString(),ecole:cfg.title||'Journal de Caisse',operations:data,eleves:cfg.eleves||[],config:JSON.parse(JSON.stringify(cfg)),users:users.filter(function(u){return !u.fixed;})};}
 
 function exportBackup(){
   var backup=_buildBackupData();
@@ -3577,6 +3511,51 @@ function clearHistory(){
   renderHistoryList();
 }
 
+function renderTendances(){
+  var monthly={};
+  data.forEach(function(r){
+    if(!r.date) return;
+    var m=r.date.slice(0,7);
+    if(!monthly[m]){monthly[m]={e:0,s:0};}
+    monthly[m].e+=(+r.entree||0);
+    monthly[m].s+=(+r.sortie||0);
+  });
+  var mos=Object.keys(monthly).sort();
+  var mn={1:'Jan',2:'Fev',3:'Mar',4:'Avr',5:'Mai',6:'Jun',7:'Jul',8:'Aou',9:'Sep',10:'Oct',11:'Nov',12:'Dec'};
+  var el=document.getElementById('tendances-table');
+  if(!el) return;
+  if(!mos.length){el.innerHTML='<p style="color:#aaa;font-size:13px;text-align:center;padding:20px">Aucune donnee</p>';return;}
+  var html='<table style="width:100%;border-collapse:collapse;font-size:12px">'
+    +'<thead><tr style="background:#7030A0;color:#fff">'
+    +'<th style="padding:8px;text-align:left">Mois</th>'
+    +'<th style="padding:8px;text-align:right">Entrees</th>'
+    +'<th style="padding:8px;text-align:right">Variation</th>'
+    +'<th style="padding:8px;text-align:right">Sorties</th>'
+    +'<th style="padding:8px;text-align:right">Variation</th>'
+    +'<th style="padding:8px;text-align:right">Solde</th>'
+    +'</tr></thead><tbody>';
+  mos.forEach(function(m,i){
+    var d=monthly[m];
+    var prev=i>0?monthly[mos[i-1]]:null;
+    var varE=prev&&prev.e>0?Math.round((d.e-prev.e)/prev.e*100):null;
+    var varS=prev&&prev.s>0?Math.round((d.s-prev.s)/prev.s*100):null;
+    var solde=d.e-d.s;
+    var parts=m.split('-');
+    var label=mn[+parts[1]]+' '+parts[0];
+    var bg=i%2===0?'#fff':'#faf5ff';
+    html+='<tr style="background:'+bg+'">'
+      +'<td style="padding:7px 8px;font-weight:600;color:#7030A0">'+label+'</td>'
+      +'<td style="padding:7px 8px;text-align:right;color:#2e7d32;font-weight:600">'+fmtCFA(d.e)+'</td>'
+      +'<td style="padding:7px 8px;text-align:right">'+(varE!==null?'<span style="color:'+(varE>=0?'#2e7d32':'#c00')+'">'+(varE>=0?'▲':'▼')+Math.abs(varE)+'%</span>':'-')+'</td>'
+      +'<td style="padding:7px 8px;text-align:right;color:#c00;font-weight:600">'+fmtCFA(d.s)+'</td>'
+      +'<td style="padding:7px 8px;text-align:right">'+(varS!==null?'<span style="color:'+(varS>=0?'#c00':'#2e7d32')+'">'+(varS>=0?'▲':'▼')+Math.abs(varS)+'%</span>':'-')+'</td>'
+      +'<td style="padding:7px 8px;text-align:right;font-weight:700;color:'+(solde>=0?'#2e7d32':'#c00')+'">'+fmtCFA(Math.abs(solde))+(solde>=0?' ▲':' ▼')+'</td>'
+      +'</tr>';
+  });
+  html+='</tbody></table>';
+  el.innerHTML=html;
+}
+
 function forceLogin(){
   currentUser=null;
   sessionPerms={};
@@ -3634,24 +3613,21 @@ setInterval(function(){
 </div>
 
 <div class="overlay" id="ov-sync" style="z-index:8500">
-<div class="modal wide">
-  <div class="mhead"><h3>&#128279; Synchronisation &amp; Sauvegarde</h3><button class="mhead-close" onclick="closeSyncModal()">X</button></div>
+<div class="modal" style="max-width:480px">
+  <div class="mhead"><h3>&#128190; Sauvegarde &amp; Restauration</h3><button class="mhead-close" onclick="closeSyncModal()">X</button></div>
   <div class="mbody" style="padding:16px">
-    <div style="background:#f8f4ff;border:1.5px solid #D9B3FF;border-radius:10px;padding:14px;margin-bottom:14px">
-      <div style="font-size:13px;font-weight:700;color:#7030A0;margin-bottom:10px">&#128190; Sauvegarde locale (fonctionne partout)</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn" onclick="exportBackup()" style="background:#7030A0;color:#fff;padding:10px 16px;flex:1;min-width:140px">&#8595; Exporter<br><small style="opacity:.8;font-size:10px">Fichier .dat chiffre</small></button>
-        <button class="btn" onclick="importBackup()" style="background:#fff;color:#7030A0;border:1.5px solid #7030A0;padding:10px 16px;flex:1;min-width:140px">&#8593; Importer<br><small style="font-size:10px;color:#888">Fichier .dat ou .json</small></button>
-      </div>
+    <p style="font-size:13px;color:#555;margin-bottom:16px">Exportez vos donnees pour les sauvegarder ou les transferer sur un autre appareil.</p>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <button class="btn" onclick="exportBackup()" style="background:#7030A0;color:#fff;padding:14px;font-size:13px;border-radius:10px;text-align:left">
+        &#8595; Exporter une sauvegarde<br>
+        <small style="opacity:.8;font-size:11px">Telecharge un fichier .dat chiffre</small>
+      </button>
+      <button class="btn" onclick="importBackup()" style="background:#fff;color:#7030A0;border:1.5px solid #7030A0;padding:14px;font-size:13px;border-radius:10px;text-align:left">
+        &#8593; Importer une sauvegarde<br>
+        <small style="font-size:11px;color:#888">Charge un fichier .dat ou .json</small>
+      </button>
     </div>
-    <div style="background:#fff;border:1.5px solid #e8d5ff;border-radius:10px;padding:14px">
-      <div style="font-size:13px;font-weight:700;color:#7030A0;margin-bottom:10px">&#9729; Google Sheets (Chrome uniquement)</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-        <div><div id="sync-status-lbl" style="font-size:13px;font-weight:700;color:#888">Non configure</div><div id="last-sync-lbl" style="font-size:11px;color:#aaa;margin-top:2px">Jamais synchronise</div></div>
-        <button id="sync-now-btn" class="btn" onclick="saveGasUrl();pushToGAS(false)" style="background:#7030A0;color:#fff;padding:8px 14px">&#128190; Synchroniser</button>
-      </div>
-      <input type="url" id="gas-url" placeholder="https://script.google.com/macros/s/XXXX/exec" style="width:100%;padding:9px 12px;border:1.5px solid #D9B3FF;border-radius:8px;font-size:12px;box-sizing:border-box" oninput="saveGasUrl()">
-    </div>
+    <p style="font-size:11px;color:#aaa;margin-top:16px;text-align:center">La sauvegarde automatique s'effectue toutes les heures.</p>
   </div>
   <div class="mfoot"><button class="btn btn-outline" onclick="closeSyncModal()">Fermer</button></div>
 </div>
