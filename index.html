@@ -770,6 +770,7 @@ function init(){
       <div style="font-size:13px;font-weight:600;color:#7030A0;margin-bottom:8px">&#128465; Corbeille</div>
       <p style="font-size:12px;color:#888;margin-bottom:10px">Operations supprimees (max 100). Restaurez ou supprimez definitivement.</p>
       <button class="btn" onclick="closeSet();openTrash()" style="background:#7030A0;color:#fff;padding:8px 16px">Ouvrir la corbeille</button>
+      </div>
     </div>
       <div class="settings-section">
         <h4>Restauration a une date anterieure</h4>
@@ -3542,9 +3543,28 @@ function forceLogin(){
   var lb=document.getElementById('logout-btn');if(lb)lb.remove();
 }
 document.addEventListener('DOMContentLoaded', forceLogin);
+/* Inactivité : timeout 5 minutes */
+var _lastActivity = Date.now();
+var _INACTIVITY_MS = 5 * 60 * 1000;
+
+function updateActivity(){ _lastActivity = Date.now(); }
+document.addEventListener('click', updateActivity);
+document.addEventListener('keydown', updateActivity);
+document.addEventListener('touchstart', updateActivity);
+
 document.addEventListener('visibilitychange', function(){
-  if(document.visibilityState==='visible') forceLogin();
+  if(document.visibilityState==='visible'){
+    if(currentUser && (Date.now() - _lastActivity) > _INACTIVITY_MS){
+      forceLogin();
+    }
+  }
 });
+
+setInterval(function(){
+  if(currentUser && (Date.now() - _lastActivity) > _INACTIVITY_MS){
+    forceLogin();
+  }
+}, 30000);
 </script>
 
 <!-- MODAL AUTORISATIONS UTILISATEURS -->
